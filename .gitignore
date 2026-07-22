@@ -1,3 +1,26 @@
+# Local environments and secrets
+.venv/
+.env
+.env.*
+!.env.example
+
+# Application state
+instance/
 *.db
+*.sqlite
+*.sqlite3
+uploads/
+
+# Python caches and tooling output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.mypy_cache/
+
+# Local artifacts
 *.pptx
-__pycache__

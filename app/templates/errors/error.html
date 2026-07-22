@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}오류 {{ code }}{% endblock %}
+{% block content %}
+  <h1>요청을 처리할 수 없습니다</h1>
+  {% if code == 404 %}
+    <p>요청한 페이지를 찾을 수 없습니다.</p>
+  {% elif code == 429 %}
+    <p>요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.</p>
+  {% else %}
+    <p>안전하게 요청을 종료했습니다.</p>
+  {% endif %}
+  <p><a href="{{ url_for('main.index') }}">첫 화면으로 돌아가기</a></p>
+{% endblock %}

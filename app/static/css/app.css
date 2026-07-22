@@ -1,0 +1,29 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, sans-serif;
+  background: #f4f6f8;
+  color: #18202a;
+}
+
+body {
+  margin: 0;
+}
+
+.site-header {
+  background: #102a43;
+  padding: 1rem;
+}
+
+.site-header a {
+  color: #fff;
+  margin-right: 1rem;
+  text-decoration: none;
+}
+
+.container {
+  background: #fff;
+  border-radius: 0.5rem;
+  margin: 2rem auto;
+  max-width: 52rem;
+  padding: 2rem;
+}

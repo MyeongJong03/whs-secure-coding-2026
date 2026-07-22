@@ -1,0 +1,38 @@
+Section,Checklist Item,Description,Requirement,Phase,Verification,Status
+회원가입 및 프로필 관리,서버측 입력 검증,"사용자명 ASCII 영문/숫자/밑줄 4~32자, 비밀번호 12~128자, 소개글 최대 500자",SR-005,Phase 02,경계값 및 비정상 입력 테스트,PLANNED
+회원가입 및 프로필 관리,CSRF 보호,모든 상태 변경 폼과 요청에 전역 CSRF 적용,SR-003,Phase 01/02,extension 및 form 거부 테스트,PARTIAL
+회원가입 및 프로필 관리,비밀번호 보안,Werkzeug 기본 scrypt 사용 및 원문 필드 금지,SR-002,Phase 01/02,모델 및 가입 테스트,PARTIAL
+회원가입 및 프로필 관리,세션 쿠키 설정,HttpOnly SameSite Lax 및 운영 Secure,SR-007,Phase 01,설정 테스트 및 검토,PARTIAL
+회원가입 및 프로필 관리,세션 만료 및 재인증,명시 만료와 민감 작업 재인증 정책,SR-007,Phase 01/향후,설정 및 송금/관리자 테스트,PARTIAL
+회원가입 및 프로필 관리,세션 무효화,"로그인 시 세션 회전, 비밀번호 변경 시 auth_version 증가, dormant 전환 시 기존 세션 무효화",SR-004/SR-015,Phase 01/02,로그인 고정·비밀번호 변경·dormant 기존 세션 재사용 거부 테스트,PARTIAL
+회원가입 및 프로필 관리,실패 로그인 방어,로그인 rate limit 및 안전한 오류,SR-005,Phase 02,임계치 429 테스트,PLANNED
+회원가입 및 프로필 관리,관리자 전체 기능 권한,일반 가입 role 고정 및 모든 관리자 URL과 기능의 server-side role 검사,SR-014/FR-707,관리자 단계,권한 상승·일반 사용자의 전체 관리자 URL 거부 테스트,PLANNED
+상품 등록 및 관리,폼 입력 검증,제목 설명 가격의 길이 형식 범위 검증,SR-005,Phase 01/02,DB 제약 및 route 테스트,PARTIAL
+상품 등록 및 관리,XSS 방어,Jinja autoescape 유지 및 safe/Markup 금지,SR-005,Phase 02,저장/반사 XSS 테스트,PLANNED
+상품 등록 및 관리,인증된 사용자만 변경,등록 수정 삭제 서버 인증,SR-004,Phase 02,비인증 요청 거부 테스트,PLANNED
+상품 등록 및 관리,소유자 및 IDOR 확인,UUID만 신뢰하지 않고 상품 소유권 검사,SR-004,Phase 02,타인 상품 변경 거부 테스트,PLANNED
+상품 등록 및 관리,데이터 무결성,FK NOT NULL CHECK로 가격과 상태 강제,SR-010,Phase 01,IntegrityError 테스트,PARTIAL
+상품 등록 및 관리,업로드 형식,JPEG PNG WebP만 decode 후 재생성하고 SVG GIF 실행파일 거부,SR-012,Phase 02,polyglot·손상·확장자 위장 테스트,PLANNED
+상품 등록 및 관리,업로드 경로,랜덤 파일명과 고정 저장 루트로 traversal 차단,SR-012,Phase 02,경로 조작 테스트,PLANNED
+상품 검색,정렬 allowlist와 자원 제한,"정렬 기준·방향 allowlist, 검색어·페이지 크기·가격 범위·쿼리 자원 상한 적용",SR-016/FR-304/FR-305,Phase 02,비허용 정렬·과대 page size·hidden/deleted 제외 테스트,PLANNED
+실시간 채팅 및 메시징,메시지 내용 검증,메시지 1~500자 서버 검증과 escape,SR-005,Phase 01/03,DB 제약 및 event 테스트,PARTIAL
+실시간 채팅 및 메시징,Socket 인증,연결과 각 이벤트에서 로그인 상태 확인,SR-004,Phase 03,비인증 emit 거부 테스트,PLANNED
+실시간 채팅 및 메시징,발신자 위조 방지,sender는 client payload가 아닌 server session에서 결정,SR-004,Phase 03,위조 sender 무시 테스트,PLANNED
+실시간 채팅 및 메시징,1대1 채팅 권한,conversation 참여자만 조회·전송 가능,SR-004,Phase 03,비참여자 IDOR 테스트,PLANNED
+실시간 채팅 및 메시징,Rate Limiting,사용자 단위 HTTP와 event 제한,SR-005,Phase 02/03,429 및 event 차단 테스트,PLANNED
+안전 거래 및 신고,신고 입력 및 대상 검증,target type allowlist 대상 존재 사유 길이 검사,SR-005,Phase 02,잘못된 대상/형식 테스트,PLANNED
+안전 거래 및 신고,중복 신고 방지,reporter target type target id 복합 UNIQUE,FR-505,Phase 01/02,DB 및 race 테스트,PARTIAL
+안전 거래 및 신고,신고 자동 상태 전이,서로 다른 신고자 3명 집계와 관리자 복구,FR-506/FR-507/FR-508,Phase 02/관리자 단계,2명/3명/중복/복구 테스트,PLANNED
+송금,양수와 자기 송금 금지,amount 양수 및 sender recipient 상이 DB/서버 검증,FR-604/FR-605,Phase 01/04,DB 및 service 테스트,PARTIAL
+송금,잔액 초과 방지,조건부 잔액 검사와 balance 음수 DB 제약,FR-606,Phase 01/04,동시·초과 송금 테스트,PARTIAL
+송금,원자성,차감 증가 원장 생성을 단일 DB 트랜잭션으로 수행,SR-013,Phase 04,중간 오류 rollback 테스트,PLANNED
+송금,멱등성,idempotency key unique 및 기존 결과 재사용,FR-608,Phase 01/04,재전송·race 테스트,PARTIAL
+전체 시스템,ORM 및 파라미터 바인딩,동적 SQL 결합 금지와 SQLAlchemy 사용,SR-006,Phase 01+,정적 검토 및 injection 테스트,PARTIAL
+전체 시스템,DB 무결성,SQLite foreign_keys와 CHECK UNIQUE NOT NULL 적용,SR-010,Phase 01,PRAGMA 및 IntegrityError 테스트,PARTIAL
+전체 시스템,SQLite 최소 권한,instance 디렉터리와 SQLite DB 파일을 실행 계정의 최소 읽기·쓰기 권한으로 제한,SR-010,운영 단계,배포 파일 mode와 소유자 검사,PLANNED
+전체 시스템,보안 헤더,CSP nosniff DENY referrer permissions 정책 적용,SR-008,Phase 01,응답 header 테스트,PARTIAL
+전체 시스템,오류 처리,400 403 404 429 500에서 내부 정보 비노출,SR-009,Phase 01,404/500 본문 테스트,PARTIAL
+전체 시스템,감사 로그,모든 관리자 작업 기록 및 민감정보 금지,SR-011/SR-014,Phase 01/관리자 단계,모델 및 관리자 동작 테스트,PARTIAL
+전체 시스템,종속성,버전 exact pin과 pip-audit 무취약점 유지,NFR-001,Phase 01+,clean install 및 runtime/dev audit,PARTIAL
+전체 시스템,운영 rate-limit 저장소,다중 프로세스에서는 외부 공유 저장소 사용,NFR-005,운영 단계,설정 및 통합 테스트,PLANNED
+전체 시스템,운영 HTTPS와 WSS,운영 HTTP와 Socket.IO 모두 TLS 종료를 강제하고 cookie Secure와 preferred https 적용,SR-007,운영 단계,HTTPS redirect·WSS 연결·배포 TLS 검사,PLANNED
