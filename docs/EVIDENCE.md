@@ -38,3 +38,14 @@
 | FIG-31 | logout·password 변경 뒤 Socket 종료 | 캡처 필요 | `fig-31-stale-socket.png` | Phase 04 보안 | HTTP auth lifecycle 직후 old connection 종료 | password·hash·auth_version·session 값 제외 |
 | FIG-32 | message event rate limit | 캡처 필요 | `fig-32-chat-rate-limit.png` | Phase 04 보안 | user 합산 burst 제한의 generic 안내 | 내부 user ID·body 원문·sid 제외 |
 | FIG-33 | Phase 04 pytest·coverage 결과 | 캡처 필요 | `fig-33-phase04-pytest.png` | 테스트 | 기존 307 회귀를 포함한 전체 수와 app coverage | 절대경로·환경 정보 crop/redact |
+| FIG-34 | 사용자 신고 작성 | 캡처 필요 | `fig-34-user-report.png` | Phase 05 구현 | 다른 active 사용자 reason-only 신고 form | CSRF·내부 UUID·cookie 제외 |
+| FIG-35 | 상품 신고 작성 | 캡처 필요 | `fig-35-product-report.png` | Phase 05 구현 | 다른 사용자의 active/sold 상품 신고 form | seller/target 내부 ID 제외 |
+| FIG-36 | 세 번째 신고 뒤 상품 hidden | 캡처 필요 | `fig-36-auto-product-hidden.png` | Phase 05 자동 제재 | 서로 다른 세 신고 뒤 공개 목록·상세 제외 | 신고자 실제 계정·reason 원문 최소화 |
+| FIG-37 | 세 번째 신고 뒤 사용자 dormant | 캡처 필요 | `fig-37-auto-user-dormant.png` | Phase 05 자동 제재 | 일반 사용자 session·Socket 즉시 무효 | cookie·version·sid 제외 |
+| FIG-38 | 관리자 신고 검토 | 캡처 필요 | `fig-38-admin-report-review.png` | Phase 05 관리자 | pending 신고 confirm/reject와 reviewer | current password·CSRF 제외 |
+| FIG-39 | 관리자 사용자 복구 | 캡처 필요 | `fig-39-admin-user-restore.png` | Phase 05 관리자 | dormant→active 복구와 새 로그인 요구 | password·hash·version 제외 |
+| FIG-40 | 관리자 상품 복구 | 캡처 필요 | `fig-40-admin-product-restore.png` | Phase 05 관리자 | hidden 상품의 active/sold 복구 상태 | image filename·seller ID 제외 |
+| FIG-41 | 관리자 message hide | 캡처 필요 | `fig-41-admin-message-hide.png` | Phase 05 관리자 | 향후 history 제외와 복구 조치 | participant ID·room·sid 제외 |
+| FIG-42 | 관리자 audit log | 캡처 필요 | `fig-42-admin-audit.png` | Phase 05 감사 | actor/system, action, allowlisted details | token·session·reason·password 제외 |
+| FIG-43 | 일반 사용자의 관리자 접근 차단 | 캡처 필요 | `fig-43-admin-denied.png` | Phase 05 권한 | 직접 `/admin` 접근 403 | 실제 계정·private URL 제외 |
+| FIG-44 | Phase 05 pytest·coverage 결과 | 캡처 필요 | `fig-44-phase05-pytest.png` | 테스트 | 기존 408 회귀 포함 전체 수와 app coverage | 절대경로·환경 정보 crop/redact |

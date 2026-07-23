@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}신고 관리 - Secure Market{% endblock %}
+{% block content %}
+  <h1>신고 관리</h1>
+  <form method="get">
+    {{ form.q.label }} {{ form.q }}
+    {{ form.target_type.label }} {{ form.target_type }}
+    {{ form.status.label }} {{ form.status }}
+    {{ form.sort.label }} {{ form.sort }}
+    <button type="submit">조회</button>
+  </form>
+  <table>
+    <thead><tr><th>ID</th><th>신고자</th><th>대상 유형</th><th>대상</th><th>상태</th><th>생성일</th></tr></thead>
+    <tbody>
+      {% for report in page.items %}
+        <tr>
+          <td><a href="{{ url_for('admin.report_detail', report_id=report.id) }}">{{ report.id }}</a></td>
+          <td>{{ report.reporter_username }}</td><td>{{ report.target_type }}</td>
+          <td>{{ report.target_display_name }}</td><td>{{ report.status }}</td>
+          <td>{{ report.created_at }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <nav aria-label="신고 관리 페이지">
+    {% if page.page > 1 %}<a href="{{ url_for(pagination_endpoint, page=page.page - 1, **pagination_params) }}">이전</a>{% endif %}
+    <span>{{ page.page }} / {{ page.pages or 1 }}</span>
+    {% if page.page < page.pages %}<a href="{{ url_for(pagination_endpoint, page=page.page + 1, **pagination_params) }}">다음</a>{% endif %}
+  </nav>
+{% endblock %}

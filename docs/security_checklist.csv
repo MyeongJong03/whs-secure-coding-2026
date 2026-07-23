@@ -17,7 +17,7 @@ Section,Checklist Item,Description,Requirement,Phase,Verification,Status
 회원가입 및 프로필 관리,소개글 XSS 방어,500자 경계와 Jinja autoescape를 유지하고 safe/Markup 금지,SR-005,Phase 02,501자·저장 script·template 정적 테스트,VERIFIED
 회원가입 및 프로필 관리,Rate Limiting,"가입 5/hour, 로그인 5/minute+20/hour, 검색 60/minute, bio 30/hour, password 5/hour",SR-005,Phase 02,실제 임계치 429 테스트,VERIFIED
 회원가입 및 프로필 관리,인증 오류와 cache,일반 오류에 내부 정보를 숨기고 인증·마이페이지는 no-store private,SR-009,Phase 02,정상·validation·CSRF·rate·DB 오류 header/body 테스트,VERIFIED
-회원가입 및 프로필 관리,관리자 전체 기능 권한,일반 가입 role 고정은 완료했지만 관리자 URL·UI는 Phase 05에서 server-side role 검사,SR-014/FR-707,Phase 02/05,가입 권한 상승 거부 완료·관리자 전체 route 테스트 예정,PARTIAL
+회원가입 및 프로필 관리,관리자 전체 기능 권한,일반 가입 role=user 고정과 Phase 05 전체 admin route의 active role server 검사,SR-014/FR-707,Phase 02/05,가입 권한 상승 거부·anonymous/user/dormant/active 관리자 전체 route 테스트,VERIFIED
 상품 등록 및 관리,폼 입력 검증,"title 1~100, description 1~2000, price 1~1000000000과 필수 이미지 서버 검증",FR-201/FR-202/SR-005,Phase 03,form 경계·trim·DB CHECK 테스트,VERIFIED
 상품 등록 및 관리,XSS 방어,상품 출력 autoescape와 입력 길이 검증 및 safe/Markup 금지,FR-202/SR-005,Phase 03,저장 script title/description HTML escape 테스트,VERIFIED
 상품 등록 및 관리,소유권과 IDOR,current_user owner query 및 타인과 없는 상품 동일 404,FR-205~210/SR-004,Phase 03,타인 edit/status/delete와 owner 목록 DB/HTTP 테스트,VERIFIED
@@ -31,7 +31,7 @@ Section,Checklist Item,Description,Requirement,Phase,Verification,Status
 상품 이미지,path와 symlink,"DB filename exact pattern, configured root lstat/open/fstat inode 검증, root dir_fd 상대 stat/open/unlink, O_NOFOLLOW, regular/size/format 검사",FR-212/SR-012,Phase 03,traversal·unsafe DB·root/file symlink·target 무변경·inode mismatch·dir_fd 테스트,VERIFIED
 상품 이미지,filesystem DB rollback,생성 commit 실패 파일 제거와 교체 실패 new 제거/old 유지·성공 old 제거,FR-201/FR-206/SR-010,Phase 03,DB 오류 시 row와 실제 file 상태 테스트,VERIFIED
 상품 검색,검색 입력과 literal wildcard,q 100자 title/description contains autoescape,FR-301/SR-006,Phase 03,"%/_/SQLi 형태 query 결과·오류 부재 테스트",VERIFIED
-상품 검색,정렬 allowlist와 자원 제한,다섯 완성 SQL expression·page 1~1000·fixed LIMIT 20,FR-304/FR-305/SR-016,Phase 03,비허용 sort·per_page 무시·pagination URL 테스트,VERIFIED
+상품 검색,정렬 allowlist와 자원 제한,완성된 다섯 가지 SQL 정렬식·page 1~1000·fixed LIMIT 20,FR-304/FR-305/SR-016,Phase 03,비허용 sort·per_page 무시·pagination URL 테스트,VERIFIED
 상품 검색,공개 상태와 가격,"active/sold+active seller 고정, hidden/deleted 배제, min/max range",FR-302/FR-303/FR-305,Phase 03,상태 우회·dormant seller·가격 범위 테스트,VERIFIED
 실시간 채팅 및 메시징,Socket connect 인증,active authenticated current user와 DB auth_version을 connect에서 확인,FR-401/SR-017,Phase 04,비인증·dormant·version mismatch connect 테스트,VERIFIED
 실시간 채팅 및 메시징,Connect CSRF,exact auth payload와 Flask-WTF validate_csrf로 missing·tampered·다른 session token 거부,SR-003/SR-017,Phase 04,네 CSRF connect 경계 테스트,VERIFIED
@@ -48,8 +48,8 @@ Section,Checklist Item,Description,Requirement,Phase,Verification,Status
 실시간 채팅 및 메시징,Max connection,user당 registry connection 5개 cap,SEC-21/SR-019,Phase 04,5개 성공·6번째 connect 거부 테스트,VERIFIED
 실시간 채팅 및 메시징,Local client integrity,Socket.IO 4.8.3 공식 byte SHA-384·MIT notice·local SRI·runtime CDN 없음,SEC-15/SR-020,Phase 04,hash/banner/notice/template 정적 테스트,VERIFIED
 실시간 채팅 및 메시징,Message transaction,sender/scope/body를 한 commit 후 해당 room emit하고 실패 rollback·미broadcast,FR-403/SR-020,Phase 04,global/direct 정상 DB와 commit failure room 테스트,VERIFIED
-안전 거래 및 신고,신고 입력 및 대상 권한,target type·존재·자기 대상·사유 검증,SR-004/SR-005,Phase 05,route/service 테스트 예정,PLANNED
-안전 거래 및 신고,중복·자동 제재·복구,UNIQUE race와 서로 다른 3명 집계 및 관리자 원자 복구,FR-505/FR-506/FR-507/FR-508,Phase 05,DB UNIQUE만 기존 검증·service 테스트 예정,PARTIAL
+안전 거래 및 신고,신고 입력 및 대상 권한,server target type·존재·상태·자기 대상·소유권·사유 검증,SR-004/SR-005,Phase 05,route/service 정상·실패·spoof 테스트,VERIFIED
+안전 거래 및 신고,중복·자동 제재·복구,UNIQUE race와 서로 다른 유효 신고자 3명 집계 및 관리자 원자 복구,FR-505/FR-506/FR-507/FR-508,Phase 05,중복/race/rejected/threshold/복구/rollback 테스트,VERIFIED
 송금,양수·자기·잔액 방어,서버 검증과 DB CHECK,FR-604/FR-605/FR-606,Phase 06,DB 제약만 기존 검증·service 테스트 예정,PARTIAL
 송금,원자성·멱등성,차감 증가 원장 단일 transaction과 idempotency 재사용,SR-013/FR-608,Phase 06,DB UNIQUE만 기존 검증·경쟁/rollback 예정,PARTIAL
 전체 시스템,ORM 및 파라미터 바인딩,동적 SQL 결합 금지와 SQLAlchemy ORM 사용,SR-006,Phase 01+,source review와 검색 입력 테스트,PARTIAL
@@ -59,3 +59,20 @@ Section,Checklist Item,Description,Requirement,Phase,Verification,Status
 전체 시스템,README 환경 bootstrap,"`.env.example` placeholder 한 곳을 무작위 Secret Key로 교체해 O_EXCL·0600 `.env` 생성, 기존 파일 무변경, Secret 값 미출력",NFR-001/SR-001,Phase 03,bootstrap 성공·mode·출력·기존 target·template 오류·partial cleanup·저장소 .env 불변 테스트,VERIFIED
 전체 시스템,운영 rate-limit 저장소,다중 프로세스는 외부 공유 저장소 사용,NFR-005,운영 단계,배포 설정 통합 테스트 예정,PLANNED
 전체 시스템,운영 HTTPS와 WSS,운영 TLS 종료와 Secure cookie 적용,SR-007,운영 단계,Production cookie 설정 검증·실제 TLS 배포 예정,PARTIAL
+신고 및 자동 제재,신고 target과 owner,"reporter는 current user, type/target은 URL server 조회, active user·active/sold product와 self/owner 검사",FR-501~504/SEC-23,Phase 05,정상·spoof·자기·없는·상태·소유권 테스트,VERIFIED
+신고 및 자동 제재,신고 reason,"LF·NFC·strip 뒤 10~500 code point·UTF-8 2000 bytes·control 정책과 autoescape",FR-503/SEC-08,Phase 05,경계·byte·NUL/C0/DEL·정규화·XSS 테스트,VERIFIED
+신고 및 자동 제재,중복과 race,reporter-target UNIQUE 사전 검사와 IntegrityError rollback,FR-505/SEC-23,Phase 05,중복 route·직접 DB race·DB 오류 테스트,VERIFIED
+신고 및 자동 제재,Shared rate limit,사용자·상품 POST 합산 user 10/hour,SEC-12,Phase 05,두 endpoint 교차 11번째 429 테스트,VERIFIED
+신고 및 자동 제재,자동 threshold,"pending/confirmed 서로 다른 3명, rejected 제외, product previous status·user version과 system audit 원자 처리",FR-506/FR-507/SEC-23,Phase 05,1·2·3명 active/sold/user/rejected/rollback 테스트,VERIFIED
+신고 및 자동 제재,Admin 자동 제재 예외,admin 대상 신고는 pending 저장하되 자동 dormant하지 않고 수동 검토,FR-507/SEC-23,Phase 05,admin 세 신고 후 active/version 불변 테스트,VERIFIED
+사용자 상태,Session과 Socket 무효화,active↔dormant 실제 전이마다 version 증가·commit 뒤 registry 제거와 namespace disconnect,SEC-21/FR-701,Phase 05,admin/auto 상태·synthetic sid·old cookie·복구·새 login 테스트,VERIFIED
+관리자,Admin RBAC,모든 admin route active role server 검사와 no-store private,FR-707/SEC-24,Phase 05,anonymous·user·dormant·active와 navigation 독립 테스트,VERIFIED
+관리자,CLI-only admin,hidden confirmation prompt·scrypt·User Wallet AuditLog 원자 생성과 web role 변경 부재,FR-701/SEC-24,Phase 05,정상·길이·확인·username·중복·rollback·출력 테스트,VERIFIED
+관리자,Mutation 재인증,POST+CSRF와 strip하지 않은 current password 재확인,SEC-04/SEC-24,Phase 05,CSRF 누락·wrong password·response redaction 테스트,VERIFIED
+관리자,Self와 last-admin 보호,자기 dormant 금지와 대상 제외 active admin count 검사,FR-701/SEC-24,Phase 05,self·다른 admin 상태 전이 테스트,VERIFIED
+관리자,Action과 filter allowlist,URL-derived target과 choice/page/sort allowlist·ORM binding·fixed 50 SQL page,FR-701~707/SEC-24,Phase 05,잘못된 action/filter/page·SQLi 형태 literal 테스트,VERIFIED
+관리자,Pagination 상태 보존,검증된 목록별 q/filter/sort allowlist만 URL에 전달하고 page는 링크가 설정하며 per_page·unknown·외부 endpoint는 배제,FR-701~707/SEC-24,Phase 05,여섯 목록 이전/다음 query·안전한 encoding·same-origin URL 테스트,VERIFIED
+관리자,Message moderation,hide/show와 audit 원자 처리·hidden history 제외·과거 DOM 비삭제 고지,FR-703/SEC-25,Phase 05,hide/show/history/XSS/internal ID 테스트,VERIFIED
+감사,Audit atomicity,관리·자동 제재와 AuditLog 한 transaction이고 audit 실패 전체 rollback,FR-706/SEC-25,Phase 05,user/product/report/message/auto rollback 테스트,VERIFIED
+감사,Audit redaction,actor/action/target와 action별 scalar details만 허용하고 민감 key·reason 복제 거부,FR-706/SEC-25,Phase 05,policy 거부·reason 부재·system actor·autoescape 테스트,VERIFIED
+관리자,Transfer 읽기 전용,명시 projection의 GET-only fixed 50 목록이며 idempotency key와 내부 user ID 제외,FR-705,Phase 05,seeded 조회·redaction·Flask URL map GET-only와 wallet/transfer mutation 부재 테스트,VERIFIED

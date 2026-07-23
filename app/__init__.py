@@ -51,11 +51,14 @@ def create_app(
     limiter.init_app(app)
 
     from app.main import bp as main_bp
+    from app.admin import bp as admin_bp
+    from app.cli import register_cli
     from app.auth import bp as auth_bp
     from app.chat import bp as chat_bp
     from app.chat import init_chat_state
     from app.models import User
     from app.products import bp as products_bp
+    from app.moderation import bp as moderation_bp
     from app.security import clear_authentication_session
     from app.users import bp as users_bp
 
@@ -64,6 +67,9 @@ def create_app(
     app.register_blueprint(users_bp)
     app.register_blueprint(products_bp)
     app.register_blueprint(chat_bp)
+    app.register_blueprint(moderation_bp)
+    app.register_blueprint(admin_bp)
+    register_cli(app)
     init_chat_state(app)
     app.extensions["auth_dummy_hash"] = generate_password_hash(
         secrets.token_urlsafe(32)
@@ -99,6 +105,10 @@ def register_security_headers(app: Flask) -> None:
             or request.path.startswith("/me/")
             or request.path == "/chat"
             or request.path.startswith("/chat/")
+            or request.path == "/reports"
+            or request.path.startswith("/reports/")
+            or request.path == "/admin"
+            or request.path.startswith("/admin/")
         ):
             response.headers["Cache-Control"] = "no-store, private"
         response.headers["X-Content-Type-Options"] = "nosniff"

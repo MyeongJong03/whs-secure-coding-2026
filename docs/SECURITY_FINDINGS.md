@@ -5,8 +5,8 @@
 - 기준 커밋: `f0dd4baac057f62315bb4850f05d18b7e60eb4be`
 - SEC-01~17 근거는 해당 커밋의 `app.py`, `templates/`, `enviroments.yaml`을 직접 정적
   분석한 실제 줄 번호다. SEC-18은 `phase-01-foundation` user loader, SEC-19·20은
-  Phase 03 설계·위협 모델·구현 검토에서 발견했다. SEC-21·22는 Phase 04 설계·구현
-  검토에서 발견했다.
+  Phase 03 설계·위협 모델·구현 검토에서 발견했다. SEC-21·22는 Phase 04, SEC-23~25는
+  Phase 05 설계·구현 검토에서 발견했다.
 - 심각도는 악용 가능성과 기밀성·무결성·가용성 영향을 기준으로 High 또는 Medium을 사용한다.
 - 현재 상태는 `Mitigated`, `Partial`, `Open` 중 하나만 사용한다. `Mitigated`는 현재 Phase
   범위에서 기준선 공격 표면이 제거되고 검증 경로가 있는 경우, `Partial`은 기반만 있고 후속
@@ -19,15 +19,15 @@
 | SEC-01 | `app.py:7` | High | 공개된 고정 Secret Key로 세션 서명 위조와 계정 가장 가능 | Development·Production에서 누락·짧은 값·예제 placeholder·legacy 값을 거부하고 환경의 32자 이상 임의 키만 허용 | Mitigated | 설정별 시작 실패/성공 테스트, 추적 파일 secret 검사 |
 | SEC-02 | `app.py:81-82`, `app.py:96` | High | 평문 비밀번호 저장·직접 비교로 DB 유출 시 모든 자격 증명 노출 | `password_hash`만 저장하고 가입·비밀번호 변경 모두 Werkzeug 기본 scrypt를 사용한다. 같은 비밀번호의 salt/hash 차이, 기존·새 비밀번호 로그인을 재검증했다. | Mitigated | 모델·가입·비밀번호 변경 hash 테스트 |
 | SEC-03 | `app.py:210` | High | 외부 debug 실행 시 debugger·스택·환경 정보 노출 | debug 기본 false, 설정에서만 선택하고 공통 오류 handler로 내부 정보 차단 | Mitigated | 설정·source review, 404/500 응답 테스트 |
-| SEC-04 | `templates/register.html:5`, `templates/profile.html:6`, `app.py:108` | High | 가입·프로필·상품·채팅 변경을 사용자 의사 없이 유도 가능 | HTTP mutation 전역 CSRF와 Socket connect 전용 Flask-WTF CSRF를 적용하고 상태/삭제/message GET route를 두지 않는다. 신고·송금은 후속 Phase 검증이 남았다. | Partial | Testing CSRF 활성, HTTP token 누락 400, Socket missing/invalid/foreign token과 GET 405 테스트 |
+| SEC-04 | `templates/register.html:5`, `templates/profile.html:6`, `app.py:108` | High | 가입·프로필·상품·채팅·신고·관리자 변경을 사용자 의사 없이 유도 가능 | 신고와 관리자 mutation까지 POST+Flask-WTF CSRF를 적용하고 관리자 current password를 재확인한다. 실제 송금 CSRF는 Phase 06에 남았다. | Partial | Testing CSRF 활성, HTTP token 누락 400, Socket CSRF와 mutation GET 405 테스트 |
 | SEC-05 | `app.py:203` | High | 비인증·cross-site Socket.IO client가 채팅 전송 가능 | connect CSRF, same-origin, active 인증과 DB version 확인, event마다 registry/current user/DB 재검증, stale disconnect | Mitigated | 비인증·missing/invalid/다른 session CSRF·dormant/version connect와 stale event 자동 테스트 |
 | SEC-06 | `templates/dashboard.html:39`, `app.py:204` | High | client 제공 username으로 다른 발신자를 가장해 메시지 전송 가능 | client sender field 미수용, current server-authenticated user ID와 DB username만 sender로 저장·emit | Mitigated | global/direct username·sender_id extra key 거부와 저장 sender 자동 테스트 |
 | SEC-07 | `app.py:204` | Medium | 메시지 형식·길이 제한 부재로 저장 XSS, spam, 자원 고갈 위험 | strict event schema, NFC/newline/1~500자·2000 bytes/control 검증, Jinja escape·textContent, user event limit, 8192-byte packet | Mitigated | 입력 경계·정규화·control·XSS·burst/hour/multi-socket/static DOM 자동 테스트 |
-| SEC-08 | `app.py:70`, `app.py:136`, `app.py:187` | High | 가입·프로필·상품·채팅·신고 입력의 무제한 값으로 데이터 오염, XSS와 자원 남용 가능 | 인증·사용자·상품과 채팅 message/event 입력을 form/service/DB에서 제한하고 저장 XSS를 시험했다. 신고 입력은 아직 미구현이다. | Partial | 인증·사용자·상품·chat HTTP/event 경계, DB range, XSS와 upload 검증 테스트 |
-| SEC-09 | `app.py:49`, `app.py:188` | High | 신고 대상 type·존재·중복·자기 대상 미검사로 허위 신고와 자동 제재 조작 가능 | reporter/type/target UNIQUE와 target type CHECK는 구현, 대상·소유권·3명 집계 service는 후속 구현 필요 | Partial | DB 중복 테스트와 후속 존재/자기 대상/race/집계 테스트 |
+| SEC-08 | `app.py:70`, `app.py:136`, `app.py:187` | High | 가입·프로필·상품·채팅·신고·관리자 입력의 무제한 값으로 데이터 오염, XSS와 자원 남용 가능 | 신고 reason 정규화·문자/byte/control과 관리자 filter/action/page allowlist까지 구현했다. 실제 송금 입력은 Phase 06에 남았다. | Partial | reason 경계·NFC/control/XSS, admin choice/page/SQLi 형태 filter 자동 테스트 |
+| SEC-09 | `app.py:49`, `app.py:188` | High | 신고 대상 type·존재·중복·자기 대상 미검사로 허위 신고와 자동 제재 조작 가능 | server-derived reporter/type/target, 상태·소유권, UNIQUE race, distinct 3명 count, admin 예외·검토·복구를 원자 구현했다. | Mitigated | 사용자·상품 정상/자기/없는/상태/중복/race/rejected/threshold/admin 예외·rollback 테스트 |
 | SEC-10 | `app.py:31-57` | High | FK/CHECK/NOT NULL/업무 UNIQUE 부재로 고아·음수·중복·잘못된 상태 저장 가능 | SQLAlchemy 모델, SQLite FK, CHECK/UNIQUE/NOT NULL에 더해 Phase 03 bounded price CHECK, image filename UNIQUE와 named query index를 세 번째 migration에 적용 | Mitigated | 가격 경계·filename 중복 IntegrityError, index introspection, migration upgrade/downgrade/check |
 | SEC-11 | `app.py:6`, `app.py:98` | Medium | 세션 쿠키 보호·만료 정책 부재로 탈취·고정·장기 재사용 위험 | HttpOnly, SameSite=Lax, 8시간 permanent session, 운영 Secure, strong protection, 로그인 `session.clear()`, fresh non-remember login과 password 변경 `auth_version` 회전을 구현했다. | Mitigated | cookie/config, fixation marker 제거, remember 부재, 버전 mismatch·다중 client 테스트 |
-| SEC-12 | `app.py:89`, `app.py:182` | Medium | 로그인·상품·채팅·신고 요청 반복으로 brute force·spam·가용성 저하 가능 | HTTP endpoint limit, chat 사용자 합산 5/10초·120/hour, join 30/60초와 connection cap을 적용했다. 신고 limit은 Phase 05에 남아 있다. | Partial | HTTP 429, Socket burst/hour/join·malformed·multi-socket·cap 자동 테스트 |
+| SEC-12 | `app.py:89`, `app.py:182` | Medium | 로그인·상품·채팅·신고 요청 반복으로 brute force·spam·가용성 저하 가능 | 신고 사용자·상품 합산 user 10/hour와 관리자 GET IP 120/minute·mutation user 60/hour를 추가했다. 송금 limit은 Phase 06에 남았다. | Partial | 기존 HTTP/Socket limit과 신고 shared quota 자동 테스트 |
 | SEC-13 | `app.py:70`, `app.py:204` | Medium | 처리되지 않은 입력·이벤트 오류가 stack·경로·내부 상태를 노출할 수 있음 | 공통 HTTP handler와 Socket namespace generic error handler, service rollback·commit 전 미broadcast, event name-only redacted log | Mitigated | HTTP 오류와 Socket 강제 exception의 client payload·server log 자동 테스트 |
 | SEC-14 | `templates/base.html:3`, `app.py:6` | Medium | 보안 응답 header 부재로 clickjacking, MIME sniffing과 XSS 영향 증가 | 중앙 after-request에서 CSP, nosniff, DENY, referrer와 permissions 정책 적용 | Mitigated | 정상·오류 응답 header 테스트 |
 | SEC-15 | `enviroments.yaml:5-10`, `templates/base.html:7` | Medium | 버전 미고정 의존성과 외부 CDN 공급망으로 재현성 저하·악성 자산 노출 가능 | runtime/dev exact pin, Socket.IO 4.8.3 공식 byte SHA-384 검증·MIT notice·local SRI, runtime CDN 없음 | Mitigated | requirements audit, bundle hash/banner, template local URL/integrity 정적 테스트 |
@@ -36,8 +36,11 @@
 | SEC-18 | `phase-01-foundation:app/__init__.py` user loader | Medium | dormant User는 `None`이었지만 인증 session key가 남아 관리자가 다시 active로 바꾸면 과거 session cookie가 다시 인증될 수 있었다. 비밀번호 변경 뒤 다른 session을 구분할 버전도 없었다. | `User.auth_version`, 로그인 session 버전 저장, loader의 active·exact version 확인과 인증 키 purge를 구현했다. dormant로 anonymous가 된 뒤 active로 복구해도 과거 session은 계속 anonymous이며 password 변경은 다른 client를 무효화한다. | Mitigated | dormant 기존 session 차단, 재활성화 후 부활 방지, version 누락·mismatch, password 변경 후 다른 client 차단 자동 테스트 |
 | SEC-19 | Phase 03 설계·구현 검토 | High | 상품 IDOR와 mass assignment로 타인 상품 수정·삭제, 소유자·제재 상태 변경 가능 | current user owner query, 타인/없는 동일 404, form/service field allowlist, active↔sold만 허용, CSRF와 rate limit | Mitigated | 타인 edit/status/delete, 임의 seller/status/image field, hidden/deleted 복구 자동 테스트 |
 | SEC-20 | Phase 03 위협 모델·구현 및 사람 최종 검토 | High | 확장자 신뢰, traversal, configured root/file symlink, filesystem TOCTOU·저장 후 변조, polyglot, metadata, animation·decompression bomb, direct URL로 코드·정보 노출 또는 DoS 가능 | bounded decode/verify, upload/read format·dimension·pixel 재검사, 재인코딩·metadata 제거, random filename, root lstat/open/fstat identity, root dir_fd 상대 create/read/remove, 0700/0600, file/DB cleanup, 비공개 image 정책 | Mitigated | 위장·손상·path·bomb·animation·metadata·polyglot, configured root/file symlink·dir_fd·inode mismatch, read-time dimension/pixel, rollback·상태별 image 자동 테스트 |
-| SEC-21 | Phase 04 설계 검토 | High | HTTP logout·password 변경·dormant 이후 장시간 Socket이 계속 송수신 가능 | per-app registry, user/version/monotonic snapshot, event·broadcast 전 DB prune, logout/password 즉시 disconnect, dormant/version/age 제거, user cap | Mitigated | logout/password/dormant/version/max-age send·receive·재활성화 자동 테스트 |
+| SEC-21 | Phase 04·05 설계 검토 | High | HTTP logout·password 변경·moderation dormant/active 이후 장시간 Socket이나 cookie가 다시 유효해질 수 있음 | Phase 05 실제 status service가 매 전이 version을 증가시키고 audit와 commit한 뒤 user Socket을 즉시 disconnect한다. loader/connect/event exact version을 유지한다. | Mitigated | auto/admin dormant disconnect, old cookie 무효, active 복구 version 증가·새 login만 허용 테스트 |
 | SEC-22 | Phase 04 설계·구현 검토 | High | conversation ID나 room name을 신뢰하면 타인의 1대1 대화·message 접근 가능 | canonical conversation, route/event participant query, server-only room, arbitrary room 미수용, 타인/없는 동일 응답, direct room-only emit | Mitigated | participant/제3자 route·join·send·수신·room scope 자동 테스트 |
+| SEC-23 | Phase 05 설계·구현 검토 | High | 중복·자기 신고 또는 다계정 신고로 자동 제재를 조작해 가용성을 훼손 가능 | server-derived reporter/target, 상태·소유권, UNIQUE, shared rate limit, distinct threshold, admin 자동 dormant 제외, review/recovery/audit와 원자 race 처리 | Mitigated | 신고 경계·중복·race·1/2/3명·rejected·admin 예외·rollback 테스트 |
+| SEC-24 | Phase 05 설계·구현 검토 | High | 관리자 URL 직접 접근, mass assignment, CSRF·재인증 부재로 권한 상승 또는 임의 상태 변경 가능 | active `admin_required`, 가입 role=user, CLI-only admin, POST+CSRF+current password, URL target, action allowlist, self/last-admin 보호 | Mitigated | anonymous/user/dormant/admin RBAC, CSRF/reauth, role/target spoof, GET 405와 상태 전이 테스트 |
+| SEC-25 | Phase 05 설계·구현 검토 | High | 감사 누락 또는 민감정보 기록으로 부인 방지 실패와 비밀정보 2차 노출 가능 | 상태와 audit 동일 transaction, read-only UI, actor/action/target/details allowlist, system actor, password/hash/token/session/sid/reason redaction | Mitigated | audit failure rollback, details policy, HTML escape, 수정·삭제 route 부재와 민감 key 테스트 |
 
 ## SEC-19 상세
 
@@ -118,9 +121,46 @@
   room·invalid UUID·다른 conversation send 거부, 두 participant만 수신하고 제3자/global
   room은 미수신하는 자동 테스트가 통과한 뒤 Mitigated로 기록했다.
 
+## SEC-23 상세
+
+- 주제: 중복·자기 신고와 다계정 신고를 이용한 자동 제재 남용
+- 심각도: High
+- 완화: reporter와 URL target/type을 서버가 결정하고 대상 존재·상태·소유권, 신고자-대상
+  UNIQUE 사전/race, 사용자·상품 shared 10/hour와 `pending`/`confirmed`의 서로 다른 신고자
+  3명을 검사한다. admin 계정은 자동 dormant하지 않고 수동 review·recovery·audit를
+  요구한다.
+- 검증: 정상/자기/없는/비공개/중복/spoof/UNIQUE race/rejected 제외/세 번째 자동 제재,
+  admin 예외와 audit failure 전체 rollback 자동 테스트가 통과한 뒤 Mitigated로 기록했다.
+- 잔여 위험: Sybil 계정 자체를 식별하지 못하므로 운영 단계에서 계정 신뢰·연령·행동 신호와
+  수동 검토가 필요하다.
+
+## SEC-24 상세
+
+- 주제: 관리자 URL 직접 접근, mass assignment, CSRF 또는 재인증 부재에 의한 권한 상승
+- 심각도: High
+- 완화: active `admin_required`를 모든 admin route에 적용하고 일반 가입 role=user,
+  hidden-prompt CLI-only admin, POST+CSRF+current password, URL-derived target와 action
+  allowlist를 사용한다. web role 변경, 자기 dormancy와 마지막 active admin 제거를
+  허용하지 않는다.
+- 검증: anonymous/일반/dormant/active RBAC, 모든 목록, CSRF 누락, 잘못된 password,
+  role/seller/status/actor/target spoof, 잘못된 action/filter/page와 mutation GET 405 자동
+  테스트가 통과한 뒤 Mitigated로 기록했다.
+
+## SEC-25 상세
+
+- 주제: 감사 로그 누락 또는 민감정보 기록으로 인한 부인 방지 실패와 비밀정보 2차 노출
+- 심각도: High
+- 완화: 관리/자동 제재와 AuditLog를 같은 transaction에 두고 실패 시 전체 rollback한다.
+  actor/action/target와 action별 scalar details만 허용하며 password/hash/Secret/CSRF/
+  session/cookie/auth version/idempotency key/Socket sid/reason/token을 거부한다. UI는 system
+  actor를 구분하고 projection·autoescape·read-only로 제공한다.
+- 검증: audit 생성/commit 실패 rollback, actor와 details allowlist, XSS escape, reason
+  미복제, 감사 수정·삭제 route 부재와 민감 key 자동 테스트가 통과한 뒤 Mitigated로
+  기록했다.
+
 ## 종결 및 추적 원칙
 
 현재 `Partial`인 항목은 대응 업무 route나 service가 구현될 때 요구사항 ID, 자동 테스트,
 migration 또는 설정 검증과 함께 재평가한다. 최종 보고서는 Git 이력에서 실제 관련 commit을
-조회해 SEC-18~22를 포함한 Finding별 관련 commit hash를 연결하며, 검증 실패나 미구현 범위를
+조회해 SEC-18~25를 포함한 Finding별 관련 commit hash를 연결하며, 검증 실패나 미구현 범위를
 `Mitigated`로 변경하지 않는다. 관련 commit은 최종 보고서 단계에서 Git 이력으로 연결한다.

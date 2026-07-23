@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}신고 상세 - Secure Market{% endblock %}
+{% block content %}
+  <h1>신고 상세</h1>
+  <dl>
+    <dt>ID</dt><dd>{{ report.id }}</dd>
+    <dt>신고자</dt><dd>{{ report.reporter_username }}</dd>
+    <dt>대상 유형</dt><dd>{{ report.target_type }}</dd>
+    <dt>대상</dt><dd>{{ report.target_display_name }}</dd>
+    <dt>사유</dt><dd>{{ report.reason }}</dd>
+    <dt>상태</dt><dd>{{ report.status }}</dd>
+    <dt>검토자</dt><dd>{{ report.reviewer_username or "-" }}</dd>
+    <dt>검토일</dt><dd>{{ report.reviewed_at or "-" }}</dd>
+  </dl>
+  {% if report.status == "pending" %}
+    <form method="post" action="{{ url_for('admin.report_decision', report_id=report.id) }}">
+      {{ decision_form.hidden_tag() }}
+      {{ decision_form.decision.label }} {{ decision_form.decision }}
+      {{ decision_form.current_password.label }}
+      {{ decision_form.current_password(autocomplete="current-password") }}
+      <button type="submit">신고 결정</button>
+    </form>
+  {% endif %}
+{% endblock %}

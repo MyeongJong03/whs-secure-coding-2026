@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}송금 내역 - Secure Market{% endblock %}
+{% block content %}
+  <h1>송금 내역</h1>
+  <p>읽기 전용 관리자 조회입니다.</p>
+  <form method="get">
+    {{ form.q.label }} {{ form.q }}
+    {{ form.sort.label }} {{ form.sort }}
+    <button type="submit">조회</button>
+  </form>
+  <table>
+    <thead><tr><th>ID</th><th>송신자</th><th>수신자</th><th>금액</th><th>생성일</th></tr></thead>
+    <tbody>
+      {% for transfer in page.items %}
+        <tr>
+          <td>{{ transfer.id }}</td><td>{{ transfer.sender_username }}</td>
+          <td>{{ transfer.recipient_username }}</td><td>{{ transfer.amount }}</td>
+          <td>{{ transfer.created_at }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <nav aria-label="송금 페이지">
+    {% if page.page > 1 %}<a href="{{ url_for(pagination_endpoint, page=page.page - 1, **pagination_params) }}">이전</a>{% endif %}
+    <span>{{ page.page }} / {{ page.pages or 1 }}</span>
+    {% if page.page < page.pages %}<a href="{{ url_for(pagination_endpoint, page=page.page + 1, **pagination_params) }}">다음</a>{% endif %}
+  </nav>
+{% endblock %}

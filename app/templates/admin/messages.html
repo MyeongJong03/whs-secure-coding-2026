@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}채팅 메시지 관리 - Secure Market{% endblock %}
+{% block content %}
+  <h1>채팅 메시지 관리</h1>
+  <p>숨긴 메시지는 새로고침 및 향후 history 조회에서 제외되며, 이미 브라우저에 전달된 내용은 원격 삭제되지 않습니다.</p>
+  <form method="get">
+    {{ form.q.label }} {{ form.q }}
+    {{ form.scope.label }} {{ form.scope }}
+    {{ form.visibility.label }} {{ form.visibility }}
+    {{ form.sort.label }} {{ form.sort }}
+    <button type="submit">조회</button>
+  </form>
+  <table>
+    <thead><tr><th>ID</th><th>발신자</th><th>범위</th><th>본문</th><th>상태</th><th>조치</th></tr></thead>
+    <tbody>
+      {% for message in page.items %}
+        <tr>
+          <td>{{ message.id }}</td><td>{{ message.sender_username }}</td>
+          <td>{{ message.scope }}</td><td>{{ message.body }}</td>
+          <td>{{ "hidden" if message.is_hidden else "visible" }}</td>
+          <td>
+            <form method="post" action="{{ url_for('admin.message_visibility', message_id=message.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label for="action-{{ message.id }}">표시 상태</label>
+              <select id="action-{{ message.id }}" name="action">
+                <option value="hide">숨김</option>
+                <option value="show">표시</option>
+              </select>
+              <label for="password-{{ message.id }}">현재 관리자 비밀번호</label>
+              <input id="password-{{ message.id }}" name="current_password" type="password" maxlength="128" required autocomplete="current-password">
+              <button type="submit">적용</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <nav aria-label="메시지 페이지">
+    {% if page.page > 1 %}<a href="{{ url_for(pagination_endpoint, page=page.page - 1, **pagination_params) }}">이전</a>{% endif %}
+    <span>{{ page.page }} / {{ page.pages or 1 }}</span>
+    {% if page.page < page.pages %}<a href="{{ url_for(pagination_endpoint, page=page.page + 1, **pagination_params) }}">다음</a>{% endif %}
+  </nav>
+{% endblock %}

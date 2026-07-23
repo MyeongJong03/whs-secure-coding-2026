@@ -16,6 +16,7 @@ FIRST_REVISION = "09357cac1cb7"
 SECOND_REVISION = "57c21fbc6f83"
 THIRD_REVISION = "c3d57de11bfa"
 FOURTH_REVISION = "a91f4c8d2e70"
+FIFTH_REVISION = "e5b7a2c9d4f1"
 FIRST_MIGRATION = Path(
     "migrations/versions/09357cac1cb7_create_secure_foundation_models.py"
 )
@@ -27,6 +28,9 @@ THIRD_MIGRATION = Path(
 )
 FOURTH_MIGRATION = Path(
     "migrations/versions/a91f4c8d2e70_add_secure_chat_constraints_and_indexes.py"
+)
+FIFTH_MIGRATION = Path(
+    "migrations/versions/e5b7a2c9d4f1_add_secure_moderation_and_audit_metadata.py"
 )
 
 
@@ -142,7 +146,38 @@ def test_fourth_migration_chain_chat_constraint_and_indexes():
     assert "ix_chat_messages_sender_created" in source
     assert "ix_direct_conversations_user1_created" in source
     assert "ix_direct_conversations_user2_created" in source
-    assert len(tuple(Path("migrations/versions").glob("*.py"))) == 4
+    assert len(tuple(Path("migrations/versions").glob("*.py"))) == 5
+
+
+def test_fifth_migration_chain_moderation_constraints_and_indexes():
+    source = FIFTH_MIGRATION.read_text(encoding="utf-8")
+
+    assert f'revision = "{FIFTH_REVISION}"' in source
+    assert f'down_revision = "{FOURTH_REVISION}"' in source
+    assert "ck_products_moderation_previous_status" in source
+    assert "ck_reports_review_consistency" in source
+    assert "ix_reports_target_status_created" in source
+    assert "ix_reports_reporter_created" in source
+    assert "ck_audit_logs_action_length" in source
+    assert "ck_audit_logs_target_type_length" in source
+    assert "ix_audit_logs_created" in source
+    assert "ix_audit_logs_actor_created" in source
+    assert "ix_audit_logs_target_created" in source
+
+
+def test_phase_four_migrations_are_unchanged_from_preserved_tag():
+    for migration in (
+        FIRST_MIGRATION,
+        SECOND_MIGRATION,
+        THIRD_MIGRATION,
+        FOURTH_MIGRATION,
+    ):
+        tagged = subprocess.run(
+            ["git", "show", f"phase-04-chat:{migration.as_posix()}"],
+            check=True,
+            capture_output=True,
+        ).stdout
+        assert migration.read_bytes() == tagged
 
 
 def test_full_migration_upgrade_downgrade_reupgrade_and_drift_check(tmp_path):
@@ -152,7 +187,7 @@ def test_full_migration_upgrade_downgrade_reupgrade_and_drift_check(tmp_path):
     assert_flask_success(upgrade)
     current = run_flask(database_path, "db", "current")
     assert_flask_success(current)
-    assert FOURTH_REVISION in current.stdout
+    assert FIFTH_REVISION in current.stdout
     check = run_flask(database_path, "db", "check")
     assert_flask_success(check)
 
@@ -167,18 +202,17 @@ def test_full_migration_upgrade_downgrade_reupgrade_and_drift_check(tmp_path):
     assert str(columns["auth_version"][4]).strip("'\"") == "1"
     assert "ck_users_auth_version_positive" in schema
 
-    downgrade = run_flask(database_path, "db", "downgrade", THIRD_REVISION)
+    downgrade = run_flask(database_path, "db", "downgrade", FOURTH_REVISION)
     assert_flask_success(downgrade)
     with sqlite3.connect(database_path) as connection:
-        downgraded_schema = connection.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='chat_messages'"
+        product_schema = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='products'"
         ).fetchone()[0]
-        downgraded_indexes = {
-            row[1] for row in connection.execute("PRAGMA index_list(chat_messages)")
+        report_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(reports)")
         }
-    assert "ck_chat_messages_body_length" in downgraded_schema
-    assert "ck_chat_messages_is_hidden_boolean" not in downgraded_schema
-    assert "ix_chat_messages_conversation_visible_created" not in downgraded_indexes
+    assert "moderation_previous_status" not in product_schema
+    assert {"reviewed_by_id", "reviewed_at", "updated_at"}.isdisjoint(report_columns)
 
     reupgrade = run_flask(database_path, "db", "upgrade")
     assert_flask_success(reupgrade)
@@ -200,6 +234,21 @@ def test_full_migration_upgrade_downgrade_reupgrade_and_drift_check(tmp_path):
             row[2]
             for row in connection.execute("PRAGMA foreign_key_list(chat_messages)")
         }
+        product_schema = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='products'"
+        ).fetchone()[0]
+        report_schema = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='reports'"
+        ).fetchone()[0]
+        audit_schema = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='audit_logs'"
+        ).fetchone()[0]
+        report_indexes = {
+            row[1] for row in connection.execute("PRAGMA index_list(reports)")
+        }
+        audit_indexes = {
+            row[1] for row in connection.execute("PRAGMA index_list(audit_logs)")
+        }
     assert "ck_chat_messages_body_length" in chat_schema
     assert "ck_chat_messages_is_hidden_boolean" in chat_schema
     assert {
@@ -211,3 +260,15 @@ def test_full_migration_upgrade_downgrade_reupgrade_and_drift_check(tmp_path):
         "ix_direct_conversations_user2_created",
     }.issubset(direct_indexes)
     assert {"users", "direct_conversations"}.issubset(foreign_keys)
+    assert "ck_products_moderation_previous_status" in product_schema
+    assert "ck_reports_review_consistency" in report_schema
+    assert "ck_audit_logs_action_length" in audit_schema
+    assert {
+        "ix_reports_target_status_created",
+        "ix_reports_reporter_created",
+    }.issubset(report_indexes)
+    assert {
+        "ix_audit_logs_created",
+        "ix_audit_logs_actor_created",
+        "ix_audit_logs_target_created",
+    }.issubset(audit_indexes)

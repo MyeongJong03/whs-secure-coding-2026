@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}관리자 대시보드 - Secure Market{% endblock %}
+{% block content %}
+  <h1>관리자 대시보드</h1>
+  <ul>
+    <li><a href="{{ url_for('admin.users') }}">사용자 관리</a>: {{ counts.users }}</li>
+    <li><a href="{{ url_for('admin.products') }}">상품 관리</a>: {{ counts.products }}</li>
+    <li><a href="{{ url_for('admin.reports') }}">대기 신고</a>: {{ counts.pending_reports }}</li>
+    <li><a href="{{ url_for('admin.messages') }}">채팅 메시지</a>: {{ counts.messages }}</li>
+    <li><a href="{{ url_for('admin.transfers') }}">송금 내역 조회</a></li>
+    <li><a href="{{ url_for('admin.audit_logs') }}">감사 로그</a></li>
+  </ul>
+{% endblock %}

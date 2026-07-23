@@ -2,8 +2,9 @@
 
 ## 현재 범위
 
-Phase 04는 Phase 01~03 factory·인증·사용자·상품·이미지·검색 위에 전체·1대1 실시간
-채팅을 구현한다. 신고, 자동 제재, 관리자 UI·메시지 hide와 송금 route는 공개하지 않는다.
+Phase 05는 Phase 01~04 factory·인증·사용자·상품·이미지·검색·채팅 위에 신고, 자동
+제재, 관리자 검토·복구와 감사 로그를 구현한다. 실제 가상 포인트 송금 route·service·form은
+Phase 06까지 공개하지 않는다.
 
 ## 구조와 책임
 
@@ -39,6 +40,10 @@ HTTP request
 | `app/chat/rate_limit.py` | app별 monotonic user sliding-window limiter |
 | `app/chat/policy.py` | namespace·server room·UUID·message normalization·generic ack |
 | `app/chat/views.py` | frozen·slots history/direct view DTO |
+| `app/moderation/` | 신고 reason policy/form, URL target route, 원자 제재 service와 DTO |
+| `app/admin/` | active-admin RBAC, 재인증 form, projection query, mutation service와 DTO |
+| `app/audit/` | action별 details allowlist와 transaction 내 AuditLog 생성 |
+| `app/cli.py` | hidden prompt 기반 CLI-only admin 원자 생성 |
 | `app/models/` | User·Wallet·Product와 후속 Phase foundation 모델 및 DB 제약 |
 | `tests/` | 기존 회귀와 chat HTTP·DB·Socket·room·static integrity 테스트 |
 
@@ -433,3 +438,70 @@ global/direct 합산 5/10초와 120/hour, join은 30/60초다. 오래된 timesta
 운영 확장 전에 shared rate store, cross-process presence/version invalidation과 Socket.IO
 message queue를 설계해야 한다. 이 잔여 위험 때문에 Phase 04를 전체 과제 완료로 표현하지
 않는다.
+
+## Phase 05 moderation transaction
+
+신고 route는 client의 reporter ID, target ID/type/status를 form으로 받지 않는다. 사용자명
+또는 상품 UUID를 URL에서 받아 service가 active 사용자 또는 active/sold 상품을 다시
+조회하며 `current_user.id`만 reporter로 사용한다.
+
+```text
+validated reason + server reporter + URL target
+  -> self/owner + current target status + existing UNIQUE precheck
+  -> Report(pending) flush + AuditLog(report.created)
+  -> same target의 pending/confirmed count
+  -> count >= 3:
+       product active/sold -> previous status 저장 -> hidden -> system audit
+       user role=user active -> dormant + auth_version++ -> system audit
+       user role=admin -> 상태 변경 없음, pending 수동 검토
+  -> one commit
+  -> user status 변경이면 commit 뒤 disconnect_user_sockets()
+```
+
+DB UNIQUE race와 모든 SQLAlchemy/audit 오류는 rollback한다. 상품 복구는 hidden 직전
+`moderation_previous_status`가 active/sold면 그대로, 없거나 안전하지 않으면 active를
+사용하고 복구 뒤 NULL로 만든다. deleted는 이 메타데이터로 복구하지 않는다.
+
+## 사용자 status와 HTTP/Socket lifecycle
+
+관리자와 자동 제재가 active↔dormant를 실제 변경할 때 User와 AuditLog를 같은 transaction에
+두고 `auth_version`을 한 번 증가시킨다. commit 뒤 registry의 모든 sid를 제거하고
+`/chat` namespace를 disconnect한다. user loader와 Socket connect/event는 DB version exact
+match를 요구한다. 따라서 dormant 동안 HTTP request가 없었더라도 active 복구가 version을
+다시 증가시켜 과거 cookie/Socket이 부활하지 않는다. 새 로그인으로 새 session과 Socket을
+만들어야 한다.
+
+## admin CLI, RBAC와 재인증
+
+`create-admin --username`은 username 정책을 재사용하고 비밀번호를 hidden prompt 두 번으로만
+입력받는다. 12~128자를 strip하지 않고 explicit scrypt hash를 만든 뒤 User, Wallet
+100000과 system actor `admin.account_created`를 한 commit한다. 일반 가입은 계속
+`role=user` 고정이며 web role 변경 route/form은 없다.
+
+`admin_required`는 login 뒤 현재 DB user의 `role=admin`, `status=active`를 검사한다. 모든
+mutation은 CSRF에 더해 current password를 재검증하고 URL target과 action allowlist만
+사용한다. 자신을 dormant 처리할 수 없고 다른 active admin이 남지 않는 전이는 거부한다.
+GET은 IP shared 120/minute, mutation은 admin user shared 60/hour다.
+
+## 관리자 projection과 감사 transaction
+
+관리자 목록·상세도 전체 ORM 객체를 template에 넘기지 않는다. 명시 column projection을
+화면별 frozen/slots DTO로 변환하고 fixed 50 SQL pagination을 사용한다. User 화면은
+password hash/version/Wallet, Product 화면은 seller ID/image filename, Message 화면은
+sender/conversation ID/room, Transfer 화면은 idempotency key와 내부 user ID를 포함하지
+않는다.
+
+사용자·상품·신고·message 변경과 AuditLog는 한 transaction이다. audit 생성 실패 시 업무
+변경도 rollback한다. details는 action별 작은 scalar dict만 받고 reason/password/hash/
+Secret/CSRF/session/cookie/auth version/idempotency key/Socket sid/token을 거부한다. audit
+화면은 수정·삭제 route 없이 actor username 또는 system과 allowlisted details만
+autoescape한다. message hide는 향후 history에서 제외하지만 이미 browser DOM에 전달된
+message 삭제를 보장하지 않는다. Transfer는 Phase 05에서 GET projection만 있고 mutation이
+없다.
+
+## 다섯 번째 migration
+
+기존 네 revision은 변경하지 않고 `a91f4c8d2e70` 다음 다섯 번째 revision만 추가한다.
+Product previous-status CHECK, Report reviewer/review timestamp/update timestamp·review
+consistency CHECK·두 index, AuditLog 길이 CHECK·세 index를 생성한다. downgrade는 새
+metadata·constraint·index만 제거하고 Phase 04 schema를 유지한다.

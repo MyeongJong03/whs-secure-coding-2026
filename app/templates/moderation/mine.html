@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}내 신고 - Secure Market{% endblock %}
+{% block content %}
+  <h1>내 신고</h1>
+  {% if page.items %}
+    <table>
+      <thead><tr><th>대상 유형</th><th>대상</th><th>사유</th><th>상태</th><th>생성일</th></tr></thead>
+      <tbody>
+        {% for report in page.items %}
+          <tr>
+            <td>{{ report.target_type }}</td>
+            <td>{{ report.target_display_name }}</td>
+            <td>{{ report.reason }}</td>
+            <td>{{ report.status }}</td>
+            <td>{{ report.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>접수한 신고가 없습니다.</p>
+  {% endif %}
+  <nav aria-label="신고 페이지">
+    {% if page.has_prev %}<a href="{{ url_for('moderation.mine', page=page.prev_num) }}">이전</a>{% endif %}
+    <span>{{ page.page }} / {{ page.pages or 1 }}</span>
+    {% if page.has_next %}<a href="{{ url_for('moderation.mine', page=page.next_num) }}">다음</a>{% endif %}
+  </nav>
+{% endblock %}

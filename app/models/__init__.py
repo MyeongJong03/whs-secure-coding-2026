@@ -65,7 +65,7 @@ class User(UserMixin, db.Model):
     )
 
     def set_password(self, candidate: str) -> None:
-        self.password_hash = generate_password_hash(candidate)
+        self.password_hash = generate_password_hash(candidate, method="scrypt")
 
     def check_password(self, candidate: str) -> bool:
         return check_password_hash(self.password_hash, candidate)
@@ -115,6 +115,11 @@ class Product(db.Model):
             "status IN ('active', 'hidden', 'sold', 'deleted')",
             name="ck_products_status",
         ),
+        db.CheckConstraint(
+            "moderation_previous_status IS NULL "
+            "OR moderation_previous_status IN ('active', 'sold')",
+            name="ck_products_moderation_previous_status",
+        ),
         db.UniqueConstraint("image_filename", name="uq_products_image_filename"),
         db.Index("ix_products_public_status_created", "status", "created_at"),
         db.Index(
@@ -140,6 +145,7 @@ class Product(db.Model):
         default="active",
         server_default=db.text("'active'"),
     )
+    moderation_previous_status = db.Column(db.String(16), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at = db.Column(
         db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now
@@ -163,6 +169,26 @@ class Report(db.Model):
         db.CheckConstraint(
             "status IN ('pending', 'confirmed', 'rejected')", name="ck_reports_status"
         ),
+        db.CheckConstraint(
+            "(status = 'pending' AND reviewed_by_id IS NULL AND reviewed_at IS NULL) "
+            "OR (status IN ('confirmed', 'rejected') "
+            "AND reviewed_by_id IS NOT NULL AND reviewed_at IS NOT NULL)",
+            name="ck_reports_review_consistency",
+        ),
+        db.Index(
+            "ix_reports_target_status_created",
+            "target_type",
+            "target_id",
+            "status",
+            "created_at",
+            "id",
+        ),
+        db.Index(
+            "ix_reports_reporter_created",
+            "reporter_id",
+            "created_at",
+            "id",
+        ),
     )
 
     id = db.Column(db.String(36), primary_key=True, default=new_uuid)
@@ -178,9 +204,23 @@ class Report(db.Model):
         default="pending",
         server_default=db.text("'pending'"),
     )
+    reviewed_by_id = db.Column(
+        db.String(36),
+        db.ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=utc_now,
+        server_default=db.text("CURRENT_TIMESTAMP"),
+        onupdate=utc_now,
+    )
 
     reporter = db.relationship("User", foreign_keys=[reporter_id])
+    reviewer = db.relationship("User", foreign_keys=[reviewed_by_id])
 
 
 class DirectConversation(db.Model):
@@ -277,6 +317,30 @@ class Transfer(db.Model):
 
 class AuditLog(db.Model):
     __tablename__ = "audit_logs"
+    __table_args__ = (
+        db.CheckConstraint(
+            "length(action) BETWEEN 1 AND 100",
+            name="ck_audit_logs_action_length",
+        ),
+        db.CheckConstraint(
+            "length(target_type) BETWEEN 1 AND 50",
+            name="ck_audit_logs_target_type_length",
+        ),
+        db.Index("ix_audit_logs_created", "created_at", "id"),
+        db.Index(
+            "ix_audit_logs_actor_created",
+            "actor_user_id",
+            "created_at",
+            "id",
+        ),
+        db.Index(
+            "ix_audit_logs_target_created",
+            "target_type",
+            "target_id",
+            "created_at",
+            "id",
+        ),
+    )
 
     id = db.Column(db.String(36), primary_key=True, default=new_uuid)
     actor_user_id = db.Column(

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}상품 상세 - Secure Market{% endblock %}
+{% block content %}
+  <h1>상품 상세</h1>
+  <dl>
+    <dt>ID</dt><dd>{{ product.id }}</dd>
+    <dt>상품명</dt><dd>{{ product.title }}</dd>
+    <dt>판매자</dt><dd>{{ product.seller_username }}</dd>
+    <dt>가격</dt><dd>{{ product.price }}</dd>
+    <dt>상태</dt><dd>{{ product.status }}</dd>
+    <dt>복구 상태</dt><dd>{{ product.restore_status or "-" }}</dd>
+    <dt>생성일</dt><dd>{{ product.created_at }}</dd>
+    <dt>수정일</dt><dd>{{ product.updated_at }}</dd>
+  </dl>
+  <form method="post" action="{{ url_for('admin.product_status', product_id=product.id) }}">
+    {{ status_form.hidden_tag() }}
+    {{ status_form.action.label }} {{ status_form.action }}
+    {{ status_form.current_password.label }}
+    {{ status_form.current_password(autocomplete="current-password") }}
+    <button type="submit">상품 상태 변경</button>
+  </form>
+{% endblock %}

@@ -5,5 +5,8 @@
     <h1>{{ profile_user.username }}</h1>
     <h2>소개</h2>
     <p>{{ profile_user.bio }}</p>
+    {% if current_user.is_authenticated and current_user.username != profile_user.username %}
+      <p><a href="{{ url_for('moderation.report_user', username=profile_user.username) }}">이 사용자 신고</a></p>
+    {% endif %}
   </article>
 {% endblock %}

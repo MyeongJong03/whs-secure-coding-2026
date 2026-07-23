@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}감사 로그 - Secure Market{% endblock %}
+{% block content %}
+  <h1>감사 로그</h1>
+  <form method="get">
+    {{ form.q.label }} {{ form.q }}
+    {{ form.target_type.label }} {{ form.target_type }}
+    {{ form.sort.label }} {{ form.sort }}
+    <button type="submit">조회</button>
+  </form>
+  <table>
+    <thead><tr><th>actor</th><th>action</th><th>대상 유형</th><th>대상 ID</th><th>details</th><th>생성일</th></tr></thead>
+    <tbody>
+      {% for log in page.items %}
+        <tr>
+          <td>{{ log.actor_username or "system" }}</td><td>{{ log.action }}</td>
+          <td>{{ log.target_type }}</td><td>{{ log.target_id or "-" }}</td>
+          <td>
+            <dl>
+              {% for key, value in log.details %}
+                <dt>{{ key }}</dt><dd>{{ value }}</dd>
+              {% endfor %}
+            </dl>
+          </td>
+          <td>{{ log.created_at }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <nav aria-label="감사 로그 페이지">
+    {% if page.page > 1 %}<a href="{{ url_for(pagination_endpoint, page=page.page - 1, **pagination_params) }}">이전</a>{% endif %}
+    <span>{{ page.page }} / {{ page.pages or 1 }}</span>
+    {% if page.page < page.pages %}<a href="{{ url_for(pagination_endpoint, page=page.page + 1, **pagination_params) }}">다음</a>{% endif %}
+  </nav>
+{% endblock %}

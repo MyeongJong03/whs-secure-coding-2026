@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}상품 신고 - Secure Market{% endblock %}
+{% block content %}
+  <h1>상품 신고</h1>
+  <p>대상 상품: {{ target.display_name }}</p>
+  <form method="post">
+    {{ form.hidden_tag() }}
+    {{ form.reason.label }}
+    {{ form.reason(rows=8, maxlength=500, required=true) }}
+    {% for error in form.reason.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    <button type="submit">신고 접수</button>
+  </form>
+{% endblock %}

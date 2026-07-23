@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}사용자 상세 - Secure Market{% endblock %}
+{% block content %}
+  <h1>사용자 상세</h1>
+  <dl>
+    <dt>사용자명</dt><dd>{{ managed_user.username }}</dd>
+    <dt>역할</dt><dd>{{ managed_user.role }}</dd>
+    <dt>상태</dt><dd>{{ managed_user.status }}</dd>
+    <dt>가입일</dt><dd>{{ managed_user.created_at }}</dd>
+    <dt>수정일</dt><dd>{{ managed_user.updated_at }}</dd>
+  </dl>
+  <form method="post" action="{{ url_for('admin.user_status', username=managed_user.username) }}">
+    {{ status_form.hidden_tag() }}
+    {{ status_form.status.label }} {{ status_form.status }}
+    {{ status_form.current_password.label }}
+    {{ status_form.current_password(autocomplete="current-password") }}
+    <button type="submit">상태 변경</button>
+  </form>
+{% endblock %}
