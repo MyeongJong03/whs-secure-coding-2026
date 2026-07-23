@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}사용자 찾기 - Secure Market{% endblock %}
+{% block content %}
+  <h1>사용자 찾기</h1>
+  <form method="get">
+    <div class="form-field">
+      {{ form.q.label }}
+      {{ form.q(maxlength="32") }}
+      {% for error in form.q.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      {% for error in form.page.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    <button type="submit">검색</button>
+  </form>
+  {% if pagination is not none %}
+    <ul class="user-list">
+      {% for user in pagination.items %}
+        <li>
+          <a href="{{ url_for('users.profile', username=user.username) }}">{{ user.username }}</a>
+          <p>{{ user.bio }}</p>
+        </li>
+      {% else %}
+        <li>검색 결과가 없습니다.</li>
+      {% endfor %}
+    </ul>
+    <nav class="pagination" aria-label="사용자 목록 페이지">
+      {% if pagination.has_prev %}
+        <a href="{{ url_for('users.index', q=form.q.data, page=pagination.prev_num) }}">이전</a>
+      {% endif %}
+      <span>{{ pagination.page }} / {{ pagination.pages or 1 }}</span>
+      {% if pagination.has_next %}
+        <a href="{{ url_for('users.index', q=form.q.data, page=pagination.next_num) }}">다음</a>
+      {% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

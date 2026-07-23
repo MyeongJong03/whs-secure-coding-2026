@@ -1,6 +1,8 @@
 import os
+import secrets
 
-from flask import Flask, render_template
+from flask import Flask, render_template, request, session
+from werkzeug.security import generate_password_hash
 
 from app.config import CONFIGS, validate_secret_key
 from app.extensions import csrf, db, limiter, login_manager, migrate, socketio
@@ -45,14 +47,31 @@ def create_app(
     limiter.init_app(app)
 
     from app.main import bp as main_bp
+    from app.auth import bp as auth_bp
     from app.models import User
+    from app.security import clear_authentication_session
+    from app.users import bp as users_bp
 
     app.register_blueprint(main_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(users_bp)
+    app.extensions["auth_dummy_hash"] = generate_password_hash(
+        secrets.token_urlsafe(32)
+    )
 
     @login_manager.user_loader
     def load_user(user_id: str):
         user = db.session.get(User, user_id)
-        if user is None or not user.is_active:
+        session_auth_version = session.get("auth_version")
+        if (
+            user is None
+            or user.status != "active"
+            or session_auth_version is None
+            or not isinstance(session_auth_version, int)
+            or isinstance(session_auth_version, bool)
+            or session_auth_version != user.auth_version
+        ):
+            clear_authentication_session()
             return None
         return user
 
@@ -64,6 +83,12 @@ def create_app(
 def register_security_headers(app: Flask) -> None:
     @app.after_request
     def add_security_headers(response):
+        if (
+            request.path.startswith("/auth/")
+            or request.path == "/me"
+            or request.path.startswith("/me/")
+        ):
+            response.headers["Cache-Control"] = "no-store, private"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "no-referrer"

@@ -28,6 +28,7 @@ class User(UserMixin, db.Model):
         db.CheckConstraint("length(bio) <= 500", name="ck_users_bio_length"),
         db.CheckConstraint("role IN ('user', 'admin')", name="ck_users_role"),
         db.CheckConstraint("status IN ('active', 'dormant')", name="ck_users_status"),
+        db.CheckConstraint("auth_version >= 1", name="ck_users_auth_version_positive"),
     )
 
     id = db.Column(db.String(36), primary_key=True, default=new_uuid)
@@ -47,6 +48,12 @@ class User(UserMixin, db.Model):
         nullable=False,
         default="active",
         server_default=db.text("'active'"),
+    )
+    auth_version = db.Column(
+        db.Integer,
+        nullable=False,
+        default=1,
+        server_default=db.text("1"),
     )
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at = db.Column(

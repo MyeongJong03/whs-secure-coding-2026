@@ -20,10 +20,80 @@ body {
   text-decoration: none;
 }
 
+.site-header nav {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.nav-form {
+  display: inline;
+}
+
+.nav-form button {
+  background: transparent;
+  border: 1px solid #fff;
+  color: #fff;
+}
+
 .container {
   background: #fff;
   border-radius: 0.5rem;
   margin: 2rem auto;
   max-width: 52rem;
   padding: 2rem;
+}
+
+.form-field {
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+input,
+textarea {
+  box-sizing: border-box;
+  max-width: 32rem;
+  padding: 0.6rem;
+  width: 100%;
+}
+
+button,
+input[type="submit"] {
+  cursor: pointer;
+  padding: 0.55rem 0.9rem;
+  width: auto;
+}
+
+.field-error,
+.flash-error {
+  color: #a61b1b;
+}
+
+.flash-success {
+  color: #146c2e;
+}
+
+.notice {
+  background: #edf6ff;
+  border-left: 0.25rem solid #2680c2;
+  padding: 0.75rem;
+}
+
+.user-list {
+  padding-left: 1.25rem;
+}
+
+.user-list li {
+  margin-bottom: 1rem;
+}
+
+.pagination {
+  display: flex;
+  gap: 1rem;
 }

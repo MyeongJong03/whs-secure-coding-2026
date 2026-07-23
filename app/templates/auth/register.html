@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}회원가입 - Secure Market{% endblock %}
+{% block content %}
+  <h1>회원가입</h1>
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="form-field">
+      {{ form.username.label }}
+      {{ form.username(autocomplete="username", maxlength="32") }}
+      {% for error in form.username.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div class="form-field">
+      {{ form.password.label }}
+      {{ form.password(autocomplete="new-password", minlength="12", maxlength="128") }}
+      {% for error in form.password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div class="form-field">
+      {{ form.password_confirm.label }}
+      {{ form.password_confirm(autocomplete="new-password", minlength="12", maxlength="128") }}
+      {% for error in form.password_confirm.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    {{ form.submit() }}
+  </form>
+  <p><a href="{{ url_for('auth.login') }}">이미 계정이 있나요?</a></p>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}로그인 - Secure Market{% endblock %}
+{% block content %}
+  <h1>로그인</h1>
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="form-field">
+      {{ form.username.label }}
+      {{ form.username(autocomplete="username", maxlength="32") }}
+      {% for error in form.username.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div class="form-field">
+      {{ form.password.label }}
+      {{ form.password(autocomplete="current-password", maxlength="128") }}
+      {% for error in form.password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    {{ form.submit() }}
+  </form>
+  <p><a href="{{ url_for('auth.register') }}">새 계정 만들기</a></p>
+{% endblock %}

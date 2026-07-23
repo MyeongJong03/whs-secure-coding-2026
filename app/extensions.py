@@ -13,6 +13,8 @@ from sqlalchemy.engine import Engine
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
+login_manager.login_view = "auth.login"
+login_manager.session_protection = "strong"
 csrf = CSRFProtect()
 socketio = SocketIO(async_mode="threading")
 limiter = Limiter(key_func=get_remote_address)

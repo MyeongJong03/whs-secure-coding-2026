@@ -2,78 +2,68 @@
 
 ## 범위와 자산
 
-범위는 브라우저, Flask/Jinja2 애플리케이션, Socket.IO 경계, SQLite와 업로드 저장소다.
+현재 공격 표면은 공개 index·health, 가입·로그인·POST 로그아웃, 사용자 검색·공개 프로필,
+마이페이지·소개글·비밀번호 변경, Flask session과 SQLite다. Phase 01의 상품·채팅·신고·송금
+모델은 존재하지만 해당 route와 UI는 아직 공격 표면으로 공개하지 않았다.
 
-- 계정 식별자, 비밀번호 해시, 세션과 role
-- 프로필·상품·이미지·전체/1대1 메시지
-- 신고 내용과 자동 제재 상태
-- Wallet 잔액, Transfer 원장과 idempotency key
-- 관리자 조치와 AuditLog의 무결성
-- 애플리케이션 Secret Key, 가용성, 소스·설정의 기밀성
+주요 자산은 사용자명, scrypt password hash, 인증 session, role/status/auth_version, bio,
+Wallet 가상 포인트, application Secret Key와 DB 무결성이다. password 원문과 session 값은
+저장·로그 대상이 아니다.
 
-## 공격자
+## 공격자와 신뢰 경계
 
-- 비인증 외부 사용자와 자동화 봇
-- 정상 계정을 가진 악의적 사용자
-- 다른 사용자의 객체 ID를 획득한 사용자
-- 업로드·채팅·Socket.IO 입력을 조작하는 클라이언트
-- 관리자 세션을 탈취하거나 권한 상승을 시도하는 공격자
-- 과도한 요청으로 자원을 고갈시키는 공격자
+- 비인증 사용자, credential stuffing 자동화 봇, 사용자 존재 여부를 수집하는 공격자
+- 정상 계정으로 다른 User ID나 권한 필드를 조작하는 사용자
+- 저장·반사 XSS, CSRF, SQL injection, open redirect를 시도하는 client
+- 탈취·고정·오래된 session cookie를 재사용하는 공격자
 
-## 신뢰 경계
+브라우저 입력, query/form의 user ID·role·status·balance, cookie의 서명 전 내용, 공개 URL의
+username은 신뢰하지 않는다. Flask form·CSRF·Limiter 경계, route/service 경계, ORM/SQLite
+경계와 일반 user/admin 경계에서 다시 검증한다.
 
-1. 브라우저/네트워크와 Flask HTTP·Socket.IO 입력 경계
-2. Flask 라우트와 인증·검증·service 계층 경계
-3. 애플리케이션과 SQLite/파일 저장소 경계
-4. 일반 사용자와 관리자 권한 경계
-5. 개발 설정과 운영 secret/HTTPS/rate-limit 저장소 경계
+## STRIDE 요약
 
-클라이언트의 hidden field, sender ID, role, Content-Type, 파일명과 객체 ID는 모두 신뢰하지
-않는다.
+| 분류 | Phase 02 위협 | 구현된 완화 | 잔여 위험 |
+|---|---|---|---|
+| Spoofing | 자격 증명 대입, session fixation·재사용 | scrypt, generic login, dummy hash, login rate limit, `session.clear()`, strong protection, `auth_version` | 유출 자격 증명 자체와 피싱은 별도 통제 필요 |
+| Tampering | 가입 role/status/balance 조작, 타인 bio 변경 | 허용 form 필드만 사용, 서버 고정 role/status/version/balance, 현재 session User만 변경, DB CHECK/UNIQUE | 후속 객체 route는 별도 객체 권한 필요 |
+| Repudiation | 비밀번호 변경 부인 | 민감정보를 기록하지 않는 정책, transaction과 검증 테스트 | 계정 보안 이벤트 감사 설계는 후속 검토 |
+| Information disclosure | 계정 열거, password/hash/UUID/잔액 노출 | 동일 실패 상태·메시지·구조, 공개 필드 `username`/`bio` allowlist, 일반 오류 | 응답 시간 완전 균등은 보장하지 않음 |
+| Denial of service | scrypt 로그인·가입·검색·변경 폭주 | endpoint별 IP/사용자 rate limit, 입력·페이지 상한 | `memory://`는 다중 인스턴스에 부적합 |
+| Elevation of privilege | 일반 가입으로 admin 획득 | role 입력 없음, `role=user` 명시, 임의 필드 무시, 테스트 | 관리자 기능 자체는 Phase 05까지 미구현 |
 
-## 공격 표면
+## 인증·사용자 상세 위협
 
-- 가입·로그인·로그아웃·프로필 폼과 세션
-- 상품 CRUD와 이미지 multipart 업로드
-- Socket.IO 연결, 전체 채팅과 1대1 이벤트
-- 신고 생성·집계·관리자 검토
-- 송금 요청, 중복 요청과 동시성
-- UUID 기반 상세/변경 라우트와 관리자 UI
-- 오류 페이지, health, 정적 파일, 의존성 및 migration 운영
+| ID | 시나리오 | 구현된 완화 | 잔여 위험 |
+|---|---|---|---|
+| TM-01 | credential stuffing·brute force | 로그인 POST IP당 5/minute·20/hour, scrypt, 계정 영구 잠금 없음 | 분산 IP 공격은 외부 WAF·공유 limiter 필요 |
+| TM-02 | 존재하지 않는 사용자·dormant 계정 enumeration | 모두 401, 같은 일반 메시지·template 구조, 없는/dormant는 앱 시작 시 만든 dummy scrypt hash 검증 | DB 조회와 실제/dummy hash의 미세 timing 차이는 완전 제거되지 않음 |
+| TM-03 | 로그인 전 session fixation | 성공 직전 `session.clear()`, fresh non-remember login, permanent 8시간 session | Secret Key·TLS 운영이 잘못되면 cookie 보호 약화 |
+| TM-04 | dormant session의 stale resurrection | user loader가 inactive 시 인증 키를 제거하여 재활성화 뒤에도 과거 session은 anonymous | status 변경 관리자 흐름은 Phase 05 예정 |
+| TM-05 | 비밀번호 변경 뒤 다른 browser session reuse | hash와 `auth_version` 동시 commit, loader exact version 비교, 현재 browser만 새 session 수립 | 이미 진행 중인 동시 요청 처리 경계는 배포 환경에서 추가 관찰 필요 |
+| TM-06 | auth_version 누락·변조 cookie | 서명된 session + 버전 존재·정확 일치 요구, mismatch 인증 키 purge | Secret Key 노출 시 서명 보호 자체가 무력화됨 |
+| TM-07 | CSRF logout·profile·password 변경 | 전역 Flask-WTF CSRF, 상태 변경 POST, SameSite=Lax | XSS가 생기면 동일 origin 요청은 가능하므로 XSS 완화 병행 |
+| TM-08 | 저장 XSS bio | 최대 500자, Markup/`safe` 금지, Jinja autoescape, self-only CSP | 후속 richer text 기능 추가 시 재설계 필요 |
+| TM-09 | 공개 profile 과다 노출 | active 사용자만, username·bio allowlist, UUID/hash/role/status/version/balance 제외 | username·bio 자체는 의도된 공개 정보 |
+| TM-10 | 사용자 검색 자원 고갈·SQL injection | q 32, page 1~1000, fixed 20, ORM binding, 60/minute | 대규모 데이터에서는 index·query plan 검토 필요 |
+| TM-11 | 가입 race와 부분 생성 | 사전 중복 조회, DB UNIQUE, IntegrityError rollback, User+Wallet 단일 commit | SQLite 쓰기 경쟁은 운영 부하와 함께 검토 필요 |
+| TM-12 | 오류를 통한 내부 정보 노출 | 일반 400/401/404/429/500, 500 rollback, 공통 보안 header | server-side 로그 redaction 운영 절차 필요 |
 
-## STRIDE 분석
+## 후속 Phase 위협
 
-| 분류 | 위협 | 영향 | 완화책 | 잔여 위험 |
-|---|---|---|---|---|
-| Spoofing | 로그인 우회, chat sender 위조, 세션 탈취 | 타인 행위 가장 | Flask-Login, 서버 session에서 sender 결정, Secure/HttpOnly/SameSite, 로그인 rate limit | 피싱·단말 탈취는 별도 통제 필요 |
-| Tampering | 가격·잔액·role·대상 ID 조작, 중복 송금 | 재화 및 상태 무결성 훼손 | 서버 검증, 객체 권한, CHECK/FK/UNIQUE, 원자 트랜잭션, idempotency | SQLite 동시성 설계를 부하 테스트해야 함 |
-| Repudiation | 관리자·송금·신고 행위 부인 | 조사/복구 곤란 | 변경 불가능한 의미의 AuditLog, actor/action/target/시간 기록 | DB 관리자 수준 변조 방지는 범위 밖 |
-| Information disclosure | 평문 비밀번호, 1대1 IDOR, 스택·경로 노출 | 계정 및 사생활 침해 | scrypt, 최소 조회, 참여자 검사, 안전한 오류, CSP/헤더, 로그 비밀 금지 | metadata 노출 정책 추가 검토 |
-| Denial of service | 대용량 업로드, 채팅/로그인 폭주, DB lock | 서비스 중단 | 5 MiB, endpoint/event rate limit, 짧은 트랜잭션, 운영 외부 저장소 | 단일 인스턴스 장애·분산 공격은 인프라 필요 |
-| Elevation of privilege | 일반 가입자의 admin role, IDOR | 전체 서비스 장악 | 서버 고정 기본 role, admin decorator, 객체 단위 검사, CSRF, 관리자 감사 | 관리자 계정 강한 인증은 향후 필요 |
+- Phase 03 상품·이미지: 소유권 IDOR, 위장 이미지, path traversal, pixel bomb, 검색 자원 고갈
+- Phase 04 채팅: Socket 인증, sender 위조, 1대1 참여자 IDOR, XSS와 spam
+- Phase 05 신고·관리자: 중복/race 제재, 관리자 role, 복구 원자성, 감사 로그
+- Phase 06 송금: 잔액 race, 자기·음수 송금, 멱등성, 원장 불변성
 
-## 주요 위협과 상세 완화
+이 항목은 아직 구현된 완화로 간주하지 않는다.
 
-| ID | 시나리오 | 계획된/현재 완화 |
-|---|---|---|
-| TM-01 | 유출된 고정 키로 세션 위조 | 환경 키 필수, 로컬 `.env` 비추적, 운영 key rotation 절차 예정 |
-| TM-02 | 비밀번호 DB 유출 | Werkzeug 기본 scrypt, 원문 필드 금지, 최소 조회 |
-| TM-03 | CSRF로 프로필·신고·송금 변경 | 전역 CSRF, 상태 변경 GET 금지, SameSite=Lax |
-| TM-04 | UUID 추측/공유를 통한 IDOR | 로그인 후 객체 소유권·대화 참여자·admin role 서버 검사 |
-| TM-05 | 저장 XSS와 CSP 우회 | Jinja autoescape, `safe` 금지, 서버 길이 검증, self-only CSP |
-| TM-06 | 위장 파일·path traversal | Pillow decode/재생성, allowlist, 랜덤명, 고정 루트 |
-| TM-07 | 신고 중복/race로 자동 제재 조작 | 복합 UNIQUE, distinct reporter 집계, 단일 트랜잭션, 관리자 복구 |
-| TM-08 | 중복·동시 송금으로 잔액 음수 | 양수/상이 사용자 CHECK, balance CHECK, idempotency UNIQUE, 원자 update |
-| TM-09 | Socket.IO payload가 sender/대화방 위조 | 연결·이벤트별 인증, sender session 고정, conversation 참여자 조회 |
-| TM-10 | 로그에 secret/세션 유출 | AuditLog allowlist, 중앙 로깅 redaction, 오류 응답 일반화 |
-| TM-11 | 취약한 dependency 공급망 | exact pin, pip-audit, 정기 업데이트와 변경 검토 |
+## 운영 잔여 위험
 
-## 잔여 위험
-
-- Phase 01에서 업무 라우트와 Socket.IO 이벤트는 공개하지 않았으며 해당 완화책은 구현 전이다.
-- SQLite는 높은 쓰기 동시성에 제한이 있어 송금과 신고 집계의 경쟁 조건 시험이 필요하다.
-- memory rate-limit 저장소는 다중 프로세스/인스턴스에서 일관되지 않는다.
-- 운영 HTTPS 종료, secret rotation, 백업·복구, 로그 보존, 관리자 MFA는 배포 범위에서 별도
-  설계해야 한다.
-- Pillow 기반 이미지 처리도 자원 고갈 가능성이 있으므로 pixel 수 제한과 처리 timeout을
-  업로드 단계에서 추가한다.
+- `memory://` limiter는 단일 프로세스 개발·시험용이다. 운영 다중 인스턴스는 공유 저장소가
+  필요하다.
+- HTTPS 종료, HSTS, Secret Key rotation, 백업·복구, 중앙 로그 redaction, 관리자 MFA는 배포
+  범위에서 별도 검증해야 한다.
+- 계정 복구, 이메일 검증, MFA는 현재 과제 범위에 없다.
+- SQLite는 높은 쓰기 동시성에 한계가 있어 후속 송금·신고 transaction에서 별도 경쟁 시험이
+  필요하다.

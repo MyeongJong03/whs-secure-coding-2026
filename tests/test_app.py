@@ -147,20 +147,12 @@ def register_auth_state_route(app):
         return jsonify(authenticated=current_user.is_authenticated)
 
 
-def set_login_session(client, user_id: str) -> None:
-    with client.session_transaction() as session:
-        session["_user_id"] = user_id
-        session["_fresh"] = True
-
-
-def test_active_session_user_is_loaded_as_authenticated(app, client):
+def test_active_session_user_is_loaded_as_authenticated(
+    app, client, user_factory, login_client
+):
     register_auth_state_route(app)
-    with app.app_context():
-        user = User(username="alice", password_hash="stored-hash-value")
-        db.session.add(user)
-        db.session.commit()
-        user_id = user.id
-    set_login_session(client, user_id)
+    user_factory()
+    assert login_client(client).status_code == 303
 
     response = client.get("/_test/auth-state")
 
@@ -168,14 +160,13 @@ def test_active_session_user_is_loaded_as_authenticated(app, client):
     assert response.get_json() == {"authenticated": True}
 
 
-def test_dormant_status_invalidates_existing_session_on_next_request(app, client):
+def test_dormant_status_invalidates_existing_session_on_next_request(
+    app, client, user_factory, login_client
+):
     register_auth_state_route(app)
-    with app.app_context():
-        user = User(username="alice", password_hash="stored-hash-value")
-        db.session.add(user)
-        db.session.commit()
-        user_id = user.id
-    set_login_session(client, user_id)
+    user = user_factory()
+    user_id = user.id
+    assert login_client(client).status_code == 303
     assert client.get("/_test/auth-state").get_json() == {"authenticated": True}
 
     with app.app_context():

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}마이페이지 - Secure Market{% endblock %}
+{% block content %}
+  <h1>마이페이지</h1>
+  <dl>
+    <dt>사용자명</dt>
+    <dd>{{ current_user.username }}</dd>
+    <dt>소개글</dt>
+    <dd>{{ current_user.bio }}</dd>
+    <dt>가상 포인트</dt>
+    <dd>{{ wallet.balance if wallet else 0 }}</dd>
+  </dl>
+  <p class="notice">가상 포인트는 과제용 포인트이며 실제 금융 자산이 아닙니다.</p>
+
+  <section>
+    <h2>소개글 변경</h2>
+    <form method="post" action="{{ url_for('users.change_bio') }}" novalidate>
+      {{ bio_form.hidden_tag() }}
+      <div class="form-field">
+        {{ bio_form.bio.label }}
+        {{ bio_form.bio(maxlength="500", rows="6") }}
+        {% for error in bio_form.bio.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      {{ bio_form.submit() }}
+    </form>
+  </section>
+
+  <section>
+    <h2>비밀번호 변경</h2>
+    <form method="post" action="{{ url_for('users.change_own_password') }}" novalidate>
+      {{ password_form.hidden_tag() }}
+      <div class="form-field">
+        {{ password_form.current_password.label }}
+        {{ password_form.current_password(autocomplete="current-password", maxlength="128") }}
+        {% for error in password_form.current_password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="form-field">
+        {{ password_form.new_password.label }}
+        {{ password_form.new_password(autocomplete="new-password", minlength="12", maxlength="128") }}
+        {% for error in password_form.new_password.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="form-field">
+        {{ password_form.new_password_confirm.label }}
+        {{ password_form.new_password_confirm(autocomplete="new-password", minlength="12", maxlength="128") }}
+        {% for error in password_form.new_password_confirm.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      {{ password_form.submit() }}
+    </form>
+  </section>
+{% endblock %}

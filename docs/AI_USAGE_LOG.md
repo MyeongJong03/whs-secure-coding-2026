@@ -7,6 +7,8 @@
 | ChatGPT | 과제 단계 계획 및 요구사항 정리 지원 | 범위, 보안 정책, 산출물과 수용 기준 구조화 | 공식 과제 지시와 항목별 대조 후 사람이 채택 여부 결정 |
 | Codex CLI | 기준선 커밋의 정적 분석 | 기존 보안 약점과 교체 대상 식별 | 기준선 파일과 Git 이력을 직접 재확인하고 Finding 근거 기록 |
 | Codex CLI | Phase 01 구현 및 테스트 지원 | factory, 설정, model, migration, 문서와 자동 테스트 작성 | diff 검토, 빈 DB migration, pytest와 보안/품질 도구로 검증 |
+| Codex CLI | Phase 02 인증·사용자 기능 구현 및 테스트 지원 | 가입·로그인·POST 로그아웃, 사용자 조회, 마이페이지, `auth_version`, migration, 문서와 자동 테스트 작성 | 사람이 diff를 검토하고 실제 pytest·coverage·Ruff·Bandit·pip-audit·Alembic 명령으로 확인 |
+| Codex CLI | Phase 02 사람 검토 후 공개 데이터 최소화 수정과 회귀 테스트 지원 | 공개 SELECT projection·view DTO, password confirmation 길이 경계, 관련 문서 정합성 보완 | 사람이 diff와 SQL projection test를 검토하고 전체 품질·보안·migration 명령으로 재검증 |
 
 ## 원칙
 
