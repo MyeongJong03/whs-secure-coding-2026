@@ -52,6 +52,8 @@ def create_app(
 
     from app.main import bp as main_bp
     from app.auth import bp as auth_bp
+    from app.chat import bp as chat_bp
+    from app.chat import init_chat_state
     from app.models import User
     from app.products import bp as products_bp
     from app.security import clear_authentication_session
@@ -61,6 +63,8 @@ def create_app(
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(products_bp)
+    app.register_blueprint(chat_bp)
+    init_chat_state(app)
     app.extensions["auth_dummy_hash"] = generate_password_hash(
         secrets.token_urlsafe(32)
     )
@@ -93,6 +97,8 @@ def register_security_headers(app: Flask) -> None:
             request.path.startswith("/auth/")
             or request.path == "/me"
             or request.path.startswith("/me/")
+            or request.path == "/chat"
+            or request.path.startswith("/chat/")
         ):
             response.headers["Cache-Control"] = "no-store, private"
         response.headers["X-Content-Type-Options"] = "nosniff"

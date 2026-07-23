@@ -15,6 +15,7 @@ from app.models import User
 FIRST_REVISION = "09357cac1cb7"
 SECOND_REVISION = "57c21fbc6f83"
 THIRD_REVISION = "c3d57de11bfa"
+FOURTH_REVISION = "a91f4c8d2e70"
 FIRST_MIGRATION = Path(
     "migrations/versions/09357cac1cb7_create_secure_foundation_models.py"
 )
@@ -23,6 +24,9 @@ SECOND_MIGRATION = Path(
 )
 THIRD_MIGRATION = Path(
     "migrations/versions/c3d57de11bfa_add_secure_product_constraints_and_indexes.py"
+)
+FOURTH_MIGRATION = Path(
+    "migrations/versions/a91f4c8d2e70_add_secure_chat_constraints_and_indexes.py"
 )
 
 
@@ -116,7 +120,29 @@ def test_third_migration_chain_constraints_and_indexes():
     assert "ix_products_public_status_created" in source
     assert "ix_products_seller_status_updated" in source
     assert "ix_products_price" in source
-    assert len(tuple(Path("migrations/versions").glob("*.py"))) == 3
+
+
+def test_phase_three_migrations_are_unchanged_from_preserved_tag():
+    for migration in (FIRST_MIGRATION, SECOND_MIGRATION, THIRD_MIGRATION):
+        tagged = subprocess.run(
+            ["git", "show", f"phase-03-products-search:{migration.as_posix()}"],
+            check=True,
+            capture_output=True,
+        ).stdout
+        assert migration.read_bytes() == tagged
+
+
+def test_fourth_migration_chain_chat_constraint_and_indexes():
+    source = FOURTH_MIGRATION.read_text(encoding="utf-8")
+
+    assert f'revision = "{FOURTH_REVISION}"' in source
+    assert f'down_revision = "{THIRD_REVISION}"' in source
+    assert "ck_chat_messages_is_hidden_boolean" in source
+    assert "ix_chat_messages_conversation_visible_created" in source
+    assert "ix_chat_messages_sender_created" in source
+    assert "ix_direct_conversations_user1_created" in source
+    assert "ix_direct_conversations_user2_created" in source
+    assert len(tuple(Path("migrations/versions").glob("*.py"))) == 4
 
 
 def test_full_migration_upgrade_downgrade_reupgrade_and_drift_check(tmp_path):
@@ -126,7 +152,7 @@ def test_full_migration_upgrade_downgrade_reupgrade_and_drift_check(tmp_path):
     assert_flask_success(upgrade)
     current = run_flask(database_path, "db", "current")
     assert_flask_success(current)
-    assert THIRD_REVISION in current.stdout
+    assert FOURTH_REVISION in current.stdout
     check = run_flask(database_path, "db", "check")
     assert_flask_success(check)
 
@@ -141,20 +167,47 @@ def test_full_migration_upgrade_downgrade_reupgrade_and_drift_check(tmp_path):
     assert str(columns["auth_version"][4]).strip("'\"") == "1"
     assert "ck_users_auth_version_positive" in schema
 
-    downgrade = run_flask(database_path, "db", "downgrade", SECOND_REVISION)
+    downgrade = run_flask(database_path, "db", "downgrade", THIRD_REVISION)
     assert_flask_success(downgrade)
     with sqlite3.connect(database_path) as connection:
         downgraded_schema = connection.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='products'"
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='chat_messages'"
         ).fetchone()[0]
         downgraded_indexes = {
-            row[1] for row in connection.execute("PRAGMA index_list(products)")
+            row[1] for row in connection.execute("PRAGMA index_list(chat_messages)")
         }
-    assert "ck_products_price_positive" in downgraded_schema
-    assert "ck_products_price_range" not in downgraded_schema
-    assert "ix_products_public_status_created" not in downgraded_indexes
+    assert "ck_chat_messages_body_length" in downgraded_schema
+    assert "ck_chat_messages_is_hidden_boolean" not in downgraded_schema
+    assert "ix_chat_messages_conversation_visible_created" not in downgraded_indexes
 
     reupgrade = run_flask(database_path, "db", "upgrade")
     assert_flask_success(reupgrade)
     final_check = run_flask(database_path, "db", "check")
     assert_flask_success(final_check)
+
+    with sqlite3.connect(database_path) as connection:
+        chat_schema = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='chat_messages'"
+        ).fetchone()[0]
+        chat_indexes = {
+            row[1] for row in connection.execute("PRAGMA index_list(chat_messages)")
+        }
+        direct_indexes = {
+            row[1]
+            for row in connection.execute("PRAGMA index_list(direct_conversations)")
+        }
+        foreign_keys = {
+            row[2]
+            for row in connection.execute("PRAGMA foreign_key_list(chat_messages)")
+        }
+    assert "ck_chat_messages_body_length" in chat_schema
+    assert "ck_chat_messages_is_hidden_boolean" in chat_schema
+    assert {
+        "ix_chat_messages_conversation_visible_created",
+        "ix_chat_messages_sender_created",
+    }.issubset(chat_indexes)
+    assert {
+        "ix_direct_conversations_user1_created",
+        "ix_direct_conversations_user2_created",
+    }.issubset(direct_indexes)
+    assert {"users", "direct_conversations"}.issubset(foreign_keys)

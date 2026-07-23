@@ -4,12 +4,13 @@
 
 현재 공격 표면은 공개 index·health, 인증·사용자 기능, 공개 상품 목록·상세·이미지,
 소유자 상품 생성·목록·수정·상태·삭제, 상품 검색, Flask session, upload filesystem과
-SQLite다. 채팅·신고·송금·관리자 route와 UI는 아직 공격 표면으로 공개하지 않았다.
+SQLite, `/chat` HTTP와 `/chat` Socket.IO namespace다. 신고·송금·관리자 route와 UI는 아직
+공격 표면으로 공개하지 않았다.
 
 주요 자산은 사용자명, scrypt password hash, 인증 session, role/status/auth_version, bio,
 Wallet 가상 포인트, 상품 소유권·상태·가격, 정규화 상품 이미지, application Secret Key,
-filesystem과 DB 무결성이다. password 원문, session 값과 원본 upload filename은 저장·로그
-대상이 아니다.
+전체·1대1 message와 대화 참여 관계, Socket CSRF·연결 registry, filesystem과 DB 무결성이다.
+password 원문, session/CSRF/sid 값과 원본 upload filename은 저장·로그 대상이 아니다.
 
 ## 공격자와 신뢰 경계
 
@@ -18,21 +19,24 @@ filesystem과 DB 무결성이다. password 원문, session 값과 원본 upload 
 - 저장·반사 XSS, CSRF, SQL injection, open redirect를 시도하는 client
 - 탈취·고정·오래된 session cookie를 재사용하는 공격자
 - 상품 UUID, 숨겨진 form field, search/sort 문자열과 악성 upload를 조작하는 공격자
+- cross-site Socket 연결, sender/conversation/room payload, oversized packet과 다중 sid로
+  인증·권한·quota를 우회하려는 공격자
 
 브라우저 입력, query/form의 user ID·role·status·balance, cookie의 서명 전 내용, 공개 URL의
 username, product UUID, seller/status/image filename, 확장자·Content-Type과 DB image
-filename은 신뢰하지 않는다. Flask form·CSRF·Limiter, route/service, Pillow/image,
-filesystem, ORM/SQLite와 일반 user/admin 경계에서 다시 검증한다.
+filename, Socket username/user ID/sender ID/auth version/room name은 신뢰하지 않는다.
+Flask form·CSRF·Limiter, Socket connect/event decorator·registry, route/service,
+Pillow/image, filesystem, ORM/SQLite와 일반 user/admin 경계에서 다시 검증한다.
 
 ## STRIDE 요약
 
 | 분류 | 현재 Phase 위협 | 구현된 완화 | 잔여 위험 |
 |---|---|---|---|
-| Spoofing | 자격 증명 대입, session fixation·재사용 | scrypt, generic login, dummy hash, login rate limit, `session.clear()`, strong protection, `auth_version` | 유출 자격 증명 자체와 피싱은 별도 통제 필요 |
-| Tampering | 가입 role/status/balance 조작, 타인 bio 변경 | 허용 form 필드만 사용, 서버 고정 role/status/version/balance, 현재 session User만 변경, DB CHECK/UNIQUE | 후속 객체 route는 별도 객체 권한 필요 |
+| Spoofing | 자격 증명 대입, session/Socket 재사용, message sender 위조 | scrypt, generic login, `auth_version`, connect CSRF, server-derived sender, event 재인증 | 유출 자격 증명 자체와 피싱은 별도 통제 필요 |
+| Tampering | 가입 권한 조작, 타인 bio·direct conversation/message 접근 | 허용 form 필드, current user/participant query, server-only room, DB CHECK/UNIQUE | 후속 관리자 객체 route는 별도 객체 권한 필요 |
 | Repudiation | 비밀번호 변경 부인 | 민감정보를 기록하지 않는 정책, transaction과 검증 테스트 | 계정 보안 이벤트 감사 설계는 후속 검토 |
-| Information disclosure | 계정 열거, password/hash/UUID/잔액 노출 | 동일 실패 상태·메시지·구조, 공개 필드 `username`/`bio` allowlist, 일반 오류 | 응답 시간 완전 균등은 보장하지 않음 |
-| Denial of service | scrypt 로그인·가입·검색·변경 폭주 | endpoint별 IP/사용자 rate limit, 입력·페이지 상한 | `memory://`는 다중 인스턴스에 부적합 |
+| Information disclosure | 계정 열거, hash/UUID/잔액·제3자 direct message 노출 | 동일 오류, 공개 DTO allowlist, participant query와 direct room 격리 | 응답 시간 완전 균등은 보장하지 않음 |
+| Denial of service | scrypt·검색·Socket connect/join/message·malformed packet 폭주 | endpoint/event user limit, 8192-byte packet, 입력·page·connection 상한 | memory limiter/registry는 다중 인스턴스에 부적합 |
 | Elevation of privilege | 일반 가입으로 admin 획득 | role 입력 없음, `role=user` 명시, 임의 필드 무시, 테스트 | 관리자 기능 자체는 Phase 05까지 미구현 |
 
 ## 인증·사용자 상세 위협
@@ -54,11 +58,25 @@ filesystem, ORM/SQLite와 일반 user/admin 경계에서 다시 검증한다.
 
 ## 후속 Phase 위협
 
-- Phase 04 채팅: Socket 인증, sender 위조, 1대1 참여자 IDOR, XSS와 spam
 - Phase 05 신고·관리자: 중복/race 제재, 관리자 role, 복구 원자성, 감사 로그
 - Phase 06 송금: 잔액 race, 자기·음수 송금, 멱등성, 원장 불변성
 
 이 후속 항목은 아직 구현된 완화로 간주하지 않는다.
+
+## Phase 04 실시간 채팅 위협
+
+| ID | 위협 | 구현된 완화 | 잔여 위험 |
+|---|---|---|---|
+| TM-28 | 비인증 Socket 또는 Cross-Site WebSocket Hijacking | exact connect auth, Flask-WTF CSRF, active/version/current user 확인, Engine.IO same-origin, SameSite cookie | origin proxy 설정 오류와 Secret Key 유출은 별도 운영 통제 |
+| TM-29 | client username/sender ID로 발신자 위조 | sender field 미수용, registry의 server-authenticated user ID와 DB username만 저장·emit | 계정 자체 탈취는 인증 통제 대상 |
+| TM-30 | conversation UUID·arbitrary room으로 direct IDOR | route/event participant query, canonical UUID, server-only room, 타인/없는 동일 404·`not_found`, direct room emit | UUID 자체 노출은 권한 부여가 아니지만 로그 redaction 유지 필요 |
+| TM-31 | 저장 message XSS | NFC/길이/control 검증, Jinja autoescape, browser createElement+textContent, self CSP, `safe`/Markup/inline script 금지 | 미래 rich text는 별도 sanitizer와 threat model 필요 |
+| TM-32 | message/join spam과 여러 Socket quota 우회 | user ID 기준 global/direct 합산 5/10초·120/hour, join 30/60초, malformed send quota 소비, 5 connection cap | app memory limiter/cap은 worker 사이 공유되지 않음 |
+| TM-33 | oversized/malformed Socket packet으로 자원 고갈·오류 정보 노출 | Engine.IO max 8192 bytes, exact event key/type, 500 char·2000 byte, control 거부, generic ack/error, args 미로그 | application 앞단의 connection/handshake rate 제한은 배포 계층 필요 |
+| TM-34 | logout/password 변경 뒤 장시간 Socket 계속 송수신 | per-app registry version snapshot, 즉시 user disconnect, event/broadcast 전 missing/dormant/version/1800초 stale prune | 다중 worker에서는 cross-process invalidation 필요 |
+| TM-35 | dormant 후 active 복구 시 과거 Socket 부활 | dormant 시 registry 제거와 server disconnect; restore는 새 authenticated connect만 허용 | 네트워크 단절 감지는 Engine.IO monitor와 배포 timeout에 의존 |
+| TM-36 | DB 실패 message가 화면에만 전달되는 불일치 | sender/scope/body를 한 commit, 실패 rollback, commit 성공 후에만 stale prune·room emit | commit 뒤 process crash로 broadcast가 누락될 수 있으며 durable queue는 현재 범위 아님 |
+| TM-37 | local browser dependency 공급망 변조 | 공식 Socket.IO 4.8.3 exact URL, SHA-384 검증, bundle license banner 유지, local self-host+SRI, runtime CDN 없음 | dependency 갱신 시 공식 byte·license·hash를 다시 검토해야 함 |
 
 ## Phase 03 상품·이미지·검색 위협
 
@@ -84,6 +102,9 @@ filesystem, ORM/SQLite와 일반 user/admin 경계에서 다시 검증한다.
 
 - `memory://` limiter는 단일 프로세스 개발·시험용이다. 운영 다중 인스턴스는 공유 저장소가
   필요하다.
+- chat registry, event limiter와 room membership도 process local이다. 다중 worker는 shared
+  quota/presence store, Socket.IO message queue와 logout/version/dormant invalidation
+  broadcast가 필요하다.
 - HTTPS 종료, HSTS, Secret Key rotation, 백업·복구, 중앙 로그 redaction, 관리자 MFA는 배포
   범위에서 별도 검증해야 한다.
 - 계정 복구, 이메일 검증, MFA는 현재 과제 범위에 없다.

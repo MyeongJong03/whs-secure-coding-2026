@@ -6,7 +6,7 @@ import pytest
 from PIL import Image
 
 from app import create_app
-from app.extensions import db, limiter
+from app.extensions import db, limiter, socketio
 from app.models import Product, User, Wallet
 
 
@@ -25,6 +25,11 @@ def app(tmp_path):
     yield application
 
     with application.app_context():
+        registry = application.extensions["chat_connection_registry"]
+        for record in registry.snapshot():
+            registry.remove(record.sid)
+            socketio.server.disconnect(record.sid, namespace="/chat")
+        application.extensions["chat_event_limiter"].reset()
         db.session.remove()
         db.drop_all()
     limiter.reset()

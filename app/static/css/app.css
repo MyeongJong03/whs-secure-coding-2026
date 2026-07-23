@@ -170,3 +170,27 @@ input[type="submit"] {
   color: #52606d;
   font-size: 0.9rem;
 }
+
+.chat-messages,
+.conversation-list {
+  list-style: none;
+  padding: 0;
+}
+
+.chat-messages li,
+.conversation-list li {
+  border-bottom: 1px solid #d9e2ec;
+  padding: 0.75rem 0;
+}
+
+.chat-messages time,
+.conversation-list time {
+  color: #52606d;
+  display: block;
+  font-size: 0.85rem;
+}
+
+.chat-body {
+  margin-bottom: 0;
+  white-space: pre-wrap;
+}

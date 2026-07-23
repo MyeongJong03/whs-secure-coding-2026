@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}전체 채팅 | Secure Market{% endblock %}
+{% block content %}
+  <section
+    class="chat-panel"
+    data-chat-root
+    data-chat-mode="global"
+    data-conversation-id=""
+    data-chat-csrf="{{ socket_csrf_token }}"
+    data-live-enabled="{{ 'true' if live_enabled else 'false' }}"
+  >
+    <h1>전체 채팅</h1>
+    {% if not live_enabled %}
+      <p class="notice">이전 이력 페이지에서는 실시간 연결이 비활성화됩니다.</p>
+    {% endif %}
+    <ol class="chat-messages" data-chat-messages>
+      {% for message in history.items %}
+        <li data-message-id="{{ message.id }}">
+          <strong>{{ message.sender_username }}</strong>
+          <time datetime="{{ message.created_at_iso }}">{{ message.created_at_iso }}</time>
+          <p class="chat-body">{{ message.body }}</p>
+        </li>
+      {% endfor %}
+    </ol>
+    {% if live_enabled %}
+      <form data-chat-form>
+        <label for="chat-body">메시지</label>
+        <textarea id="chat-body" data-chat-input maxlength="500" required></textarea>
+        <button type="submit">전송</button>
+      </form>
+    {% endif %}
+    <p data-chat-status aria-live="polite"></p>
+    <nav class="pagination" aria-label="채팅 이력 페이지">
+      {% if history.has_prev %}<a href="{{ url_for('chat.global_chat', page=history.prev_num) }}">더 최신 이력</a>{% endif %}
+      {% if history.has_next %}<a href="{{ url_for('chat.global_chat', page=history.next_num) }}">이전 이력</a>{% endif %}
+    </nav>
+  </section>
+{% endblock %}
+{% block scripts %}
+  <script
+    src="{{ url_for('static', filename='vendor/socket.io-4.8.3.min.js') }}"
+    integrity="{{ socket_io_integrity }}"
+    defer
+  ></script>
+  <script src="{{ url_for('static', filename='js/chat.js') }}" defer></script>
+{% endblock %}

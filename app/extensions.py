@@ -16,7 +16,16 @@ login_manager = LoginManager()
 login_manager.login_view = "auth.login"
 login_manager.session_protection = "strong"
 csrf = CSRFProtect()
-socketio = SocketIO(async_mode="threading")
+socketio = SocketIO(
+    async_mode="threading",
+    async_handlers=False,
+    always_connect=False,
+    max_http_buffer_size=8192,
+    monitor_clients=True,
+    logger=False,
+    engineio_logger=False,
+    cors_allowed_origins=None,
+)
 limiter = Limiter(key_func=get_remote_address)
 
 

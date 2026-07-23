@@ -31,3 +31,10 @@
 | FIG-24 | 타 사용자 수정 차단 | 캡처 필요 | `fig-24-product-idor.png` | Phase 03 보안 | 타인과 없는 상품 동일 404 | 실제 계정·UUID는 테스트 값만 사용 |
 | FIG-25 | 위험 이미지 거부 | 캡처 필요 | `fig-25-image-rejected.png` | Phase 03 보안 | 일반 upload 오류 화면 | 공격 filename·path·exception 비노출 확인 |
 | FIG-26 | Phase 03 pytest 결과 | 캡처 필요 | `fig-26-phase03-pytest.png` | 테스트 | 전체 테스트 수와 현재 app coverage | 절대경로·환경 정보 crop/redact |
+| FIG-27 | 두 browser의 전체 실시간 채팅 | 캡처 필요 | `fig-27-global-chat.png` | Phase 04 구현 | 두 active 사용자의 global message 동시 수신 | cookie·CSRF·sid·내부 UUID 제외 |
+| FIG-28 | 두 participant의 1대1 채팅 | 캡처 필요 | `fig-28-direct-chat.png` | Phase 04 구현 | canonical direct room의 양방향 message | conversation URL UUID와 계정은 synthetic 값만 사용 |
+| FIG-29 | 제3자 direct 접근 차단 | 캡처 필요 | `fig-29-direct-idor.png` | Phase 04 보안 | nonparticipant와 missing의 동일 404 또는 generic 오류 | 실제 계정·private URL 제외 |
+| FIG-30 | sender 위조 payload 차단 | 캡처 필요 | `fig-30-sender-spoof.png` | Phase 04 보안 | client sender field 거부와 server sender 유지 | payload에 token·cookie·sid를 넣지 않음 |
+| FIG-31 | logout·password 변경 뒤 Socket 종료 | 캡처 필요 | `fig-31-stale-socket.png` | Phase 04 보안 | HTTP auth lifecycle 직후 old connection 종료 | password·hash·auth_version·session 값 제외 |
+| FIG-32 | message event rate limit | 캡처 필요 | `fig-32-chat-rate-limit.png` | Phase 04 보안 | user 합산 burst 제한의 generic 안내 | 내부 user ID·body 원문·sid 제외 |
+| FIG-33 | Phase 04 pytest·coverage 결과 | 캡처 필요 | `fig-33-phase04-pytest.png` | 테스트 | 기존 307 회귀를 포함한 전체 수와 app coverage | 절대경로·환경 정보 crop/redact |

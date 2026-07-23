@@ -33,9 +33,21 @@ Section,Checklist Item,Description,Requirement,Phase,Verification,Status
 상품 검색,검색 입력과 literal wildcard,q 100자 title/description contains autoescape,FR-301/SR-006,Phase 03,"%/_/SQLi 형태 query 결과·오류 부재 테스트",VERIFIED
 상품 검색,정렬 allowlist와 자원 제한,다섯 완성 SQL expression·page 1~1000·fixed LIMIT 20,FR-304/FR-305/SR-016,Phase 03,비허용 sort·per_page 무시·pagination URL 테스트,VERIFIED
 상품 검색,공개 상태와 가격,"active/sold+active seller 고정, hidden/deleted 배제, min/max range",FR-302/FR-303/FR-305,Phase 03,상태 우회·dormant seller·가격 범위 테스트,VERIFIED
-실시간 채팅 및 메시징,Socket 인증과 sender,연결·이벤트 active 인증과 server session sender 고정,SR-004,Phase 04,비인증 emit·sender 위조 테스트 예정,PLANNED
-실시간 채팅 및 메시징,1대1 채팅 권한,conversation 참여자만 조회·전송·room join,SR-004/FR-404,Phase 04,비참여자 IDOR 테스트 예정,PLANNED
-실시간 채팅 및 메시징,메시지 검증과 rate,1~500자 autoescape와 사용자 event 제한,SR-005,Phase 04,DB 제약만 기존 검증·event 테스트 예정,PARTIAL
+실시간 채팅 및 메시징,Socket connect 인증,active authenticated current user와 DB auth_version을 connect에서 확인,FR-401/SR-017,Phase 04,비인증·dormant·version mismatch connect 테스트,VERIFIED
+실시간 채팅 및 메시징,Connect CSRF,exact auth payload와 Flask-WTF validate_csrf로 missing·tampered·다른 session token 거부,SR-003/SR-017,Phase 04,네 CSRF connect 경계 테스트,VERIFIED
+실시간 채팅 및 메시징,Same-origin Socket,"cors_allowed_origins=None이며 wildcard·빈 목록·검사 비활성화 금지",SR-017,Phase 04,runtime Socket server 설정 introspection,VERIFIED
+실시간 채팅 및 메시징,Event 인증,각 inbound event에서 registry·current user·DB active/version·max age 재검증,SR-017/SR-019,Phase 04,version·dormant·age event 거부 테스트,VERIFIED
+실시간 채팅 및 메시징,Server sender,client username/user_id/sender_id를 받지 않고 registry user만 sender로 저장,SEC-06/SR-018,Phase 04,global/direct sender spoof·DB sender 테스트,VERIFIED
+실시간 채팅 및 메시징,Strict payload,event별 exact dict key와 canonical UUID만 허용,SR-020,Phase 04,non-dict·missing·extra·room field 테스트,VERIFIED
+실시간 채팅 및 메시징,메시지 문자·byte,"NFC·LF·strip 뒤 1~500 code point·1~2000 UTF-8 bytes와 control 정책",FR-403/SR-020,Phase 04,경계·정규화·NUL/C0/DEL 테스트,VERIFIED
+실시간 채팅 및 메시징,XSS rendering,Jinja autoescape와 createElement/textContent만 사용하고 safe/Markup/innerHTML/eval 금지,SEC-07/SR-020,Phase 04,HTTP script escape·JS/template 정적 테스트,VERIFIED
+실시간 채팅 및 메시징,1대1 room 참여자,route/join/send마다 participant query하고 server-only direct room 사용,FR-404/SR-018,Phase 04,participant·제3자·missing·arbitrary room 테스트,VERIFIED
+실시간 채팅 및 메시징,Stale socket,event·broadcast 전 missing/dormant/version/1800초 초과 registry record 제거,SEC-21/SR-019,Phase 04,dormant·version·age send/receive 테스트,VERIFIED
+실시간 채팅 및 메시징,Logout·password disconnect,HTTP auth lifecycle에서 user socket을 즉시 disconnect하고 새 password session만 재연결,SEC-21/SR-019,Phase 04,logout/password old disconnect·new connect 테스트,VERIFIED
+실시간 채팅 및 메시징,Event rate limit,"user 합산 message 5/10초·120/hour, join 30/60초, malformed도 소비",SEC-07/SR-020,Phase 04,burst·hour·join·malformed·multi-socket 테스트,VERIFIED
+실시간 채팅 및 메시징,Max connection,user당 registry connection 5개 cap,SEC-21/SR-019,Phase 04,5개 성공·6번째 connect 거부 테스트,VERIFIED
+실시간 채팅 및 메시징,Local client integrity,Socket.IO 4.8.3 공식 byte SHA-384·MIT notice·local SRI·runtime CDN 없음,SEC-15/SR-020,Phase 04,hash/banner/notice/template 정적 테스트,VERIFIED
+실시간 채팅 및 메시징,Message transaction,sender/scope/body를 한 commit 후 해당 room emit하고 실패 rollback·미broadcast,FR-403/SR-020,Phase 04,global/direct 정상 DB와 commit failure room 테스트,VERIFIED
 안전 거래 및 신고,신고 입력 및 대상 권한,target type·존재·자기 대상·사유 검증,SR-004/SR-005,Phase 05,route/service 테스트 예정,PLANNED
 안전 거래 및 신고,중복·자동 제재·복구,UNIQUE race와 서로 다른 3명 집계 및 관리자 원자 복구,FR-505/FR-506/FR-507/FR-508,Phase 05,DB UNIQUE만 기존 검증·service 테스트 예정,PARTIAL
 송금,양수·자기·잔액 방어,서버 검증과 DB CHECK,FR-604/FR-605/FR-606,Phase 06,DB 제약만 기존 검증·service 테스트 예정,PARTIAL

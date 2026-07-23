@@ -410,6 +410,7 @@ def test_auth_and_user_responses_keep_security_headers(client, path):
 
 
 def test_templates_do_not_use_inline_scripts_styles_or_safe_filter():
+    import re
     from pathlib import Path
 
     templates = "\n".join(
@@ -417,7 +418,9 @@ def test_templates_do_not_use_inline_scripts_styles_or_safe_filter():
         for path in Path("app/templates").rglob("*.html")
     )
 
-    assert "<script" not in templates
+    script_tags = re.findall(r"<script\b[^>]*>", templates)
+    assert script_tags
+    assert all(" src=" in tag for tag in script_tags)
     assert "style=" not in templates
     assert "|safe" not in templates
     assert "Markup" not in templates

@@ -3,7 +3,7 @@
 ## 범위와 용어
 
 Phase 01은 안전한 실행 기반을 확정했고 Phase 02는 인증·사용자 관리, Phase 03은
-상품·이미지·검색 수직 기능을 구현한다.
+상품·이미지·검색, Phase 04는 안전한 전체·1대1 실시간 채팅을 구현한다.
 아래 업무 기능 요구사항은 공식 과제의 최소 범위를 유지한 채 실제 구현 단계와 상태를
 추적한다. 모델이 존재한다는 사실만으로 후속 서비스나 UI가 구현된 것은 아니다. "가상
 포인트"는 실제 금융 자산이나 결제 수단이 아닌 과제용 정수 값이다.
@@ -67,10 +67,10 @@ migration·세션 저장·검증·회귀 테스트로 구현했다.
 
 | ID | 독립 요구사항 | 구현 단계 |
 |---|---|---|
-| FR-401 | 인증 사용자만 전체 실시간 채팅에 참여할 수 있다. | Phase 04 예정 |
-| FR-402 | 인증 사용자는 다른 사용자와 1대1 채팅을 할 수 있다. | Phase 04 예정 |
-| FR-403 | 전체 및 1대1 채팅 이력을 DB에 저장하고 권한 범위에서 조회한다. | 모델 기반 Phase 01, 서비스 Phase 04 예정 |
-| FR-404 | 1대1 대화의 두 참여자만 대화와 메시지에 접근할 수 있다. | DB 기반 Phase 01, 서비스 Phase 04 예정 |
+| FR-401 | active 인증 사용자만 전체 실시간 채팅에 연결·참여할 수 있다. | Phase 04 구현 |
+| FR-402 | 인증 사용자는 다른 active 사용자와 canonical 1대1 대화를 생성·재사용할 수 있고 자기 대화는 금지한다. | Phase 04 구현 |
+| FR-403 | 전체 및 1대1 채팅 이력을 DB에 저장하고 권한 범위에서 최근·이전 page를 조회한다. | Phase 04 구현 |
+| FR-404 | 1대1 대화의 두 참여자만 대화 목록·페이지·room·메시지에 접근할 수 있다. | Phase 04 구현 |
 
 ## 신고 및 차단 요구사항
 
@@ -124,7 +124,7 @@ migration·세션 저장·검증·회귀 테스트로 구현했다.
 | 송금액 | 1 이상의 정수; service 검증은 Phase 06 예정 |
 | 이미지 | 실제 JPEG, PNG, WebP만 허용하고 SVG/GIF/BMP/TIFF/ICO/animation/손상 파일 거부 |
 | 이미지 요청 | 전체 요청 5 MiB, 입력·재인코딩 결과 4 MiB, 각 변 4096px, 총 16,000,000 pixel |
-| 채팅 메시지 | 1~500자 |
+| 채팅 메시지 | CRLF/CR→LF, NFC, strip 후 1~500 Unicode code point·UTF-8 1~2000 bytes; tab/newline 외 C0·NUL·DEL 거부 |
 | 신고 사유 | 10~500자 |
 | 검색 | 길이·페이지 크기 상한, 상태/정렬 allowlist, 정수 가격 범위 |
 
@@ -160,6 +160,10 @@ migration·세션 저장·검증·회귀 테스트로 구현했다.
 | SR-014 | 모든 관리자 기능에서 서버측 role을 검사하고 관리자 상태 변경을 감사한다. |
 | SR-015 | dormant 사용자는 Flask-Login user loader에서 거부하며 비밀번호 변경 세션 무효화는 `auth_version`으로 구현한다. |
 | SR-016 | 검색 정렬은 allowlist로 제한하고 페이지 크기·검색 입력·쿼리 자원을 제한한다. |
+| SR-017 | Socket connect는 same-origin과 Flask-WTF CSRF, active 인증, exact DB auth_version을 확인하고 event마다 다시 검증한다. |
+| SR-018 | 채팅 sender와 room은 서버 인증 사용자·canonical conversation에서만 파생하고 client 식별자·room을 신뢰하지 않는다. |
+| SR-019 | logout·password 변경은 해당 사용자의 Socket을 즉시 종료하고 event/broadcast 전 dormant·version·age stale connection을 제거한다. |
+| SR-020 | 채팅 event는 strict payload, 사용자 합산 sliding-window limit, bounded packet과 commit 성공 후 room broadcast를 적용한다. |
 
 ## Phase 01 수용 기준
 
@@ -198,13 +202,13 @@ migration·세션 저장·검증·회귀 테스트로 구현했다.
 ## 단계 구분과 제외 범위
 
 - Phase 02: 인증 및 사용자 관리 — 보존·회귀 유지
-- Phase 03: 상품, 안전한 이미지 업로드, 상품 검색 — 현재 구현
-- Phase 04: 전체 및 1대1 채팅
+- Phase 03: 상품, 안전한 이미지 업로드, 상품 검색 — 보존·회귀 유지
+- Phase 04: 전체 및 1대1 채팅 — 현재 구현
 - Phase 05: 신고, 자동 제재, 관리자 기능
 - Phase 06: 가상 포인트 송금, 최종 통합 및 보안 강화
 
-Phase 03에는 채팅, 신고 처리, 자동 제재, 관리자 UI, 실제 송금이 포함되지 않는다. 예정
-요구사항은 후속 구현 범위를 정의할 뿐 현재 전체 플랫폼 구현 완료를 의미하지 않는다.
+Phase 04에는 신고 처리, 자동 제재, 관리자 UI·메시지 hide, 실제 송금이 포함되지 않는다.
+예정 요구사항은 후속 구현 범위를 정의할 뿐 현재 전체 플랫폼 구현 완료를 의미하지 않는다.
 
 ## Phase 03 수용 기준
 
@@ -221,7 +225,24 @@ Phase 03에는 채팅, 신고 처리, 자동 제재, 관리자 UI, 실제 송금
 | AC-209 | 검색은 q 100자, 공개 상태, 가격 1~1,000,000,000, 정렬 allowlist, page 1~1000, fixed 20을 SQL에서 적용한다. |
 | AC-210 | 모든 mutation은 인증·CSRF·사용자 rate limit, 공개 조회는 IP rate limit, 관리 응답은 no-store를 적용한다. |
 | AC-211 | 세 번째 migration은 기존 두 migration을 변경하지 않고 head upgrade, Phase 02 downgrade, 재-upgrade와 drift check를 통과한다. |
-| AC-212 | 상품·이미지·검색 자동 테스트와 기존 143개 회귀, app coverage 90% 이상 및 전체 품질·보안 검증 결과를 사실대로 기록한다. |
+| AC-212 | 상품·이미지·검색 자동 테스트와 Phase 04 시작 시점의 기존 307개 회귀를 유지하고 전체 품질·보안 검증 결과를 사실대로 기록한다. |
+
+## Phase 04 수용 기준
+
+| ID | 기준 |
+|---|---|
+| AC-401 | `/chat`·`/chat/direct`·`/chat/direct/<uuid>`는 active 로그인과 IP 60/minute, page 1~1000, `no-store, private`를 적용하고 고정 50/20 SQL page를 DTO로 제공한다. |
+| AC-402 | direct start는 CSRF POST와 사용자 20/hour를 요구하고 username으로 active target을 조회하며 자기 대화를 거부하고 canonical pair UNIQUE race에서 기존 row를 재조회한다. |
+| AC-403 | direct route/event는 매번 participant query를 사용하고 타인·없는 conversation을 같은 404 또는 generic `not_found`로 처리하며 server-only room만 join한다. |
+| AC-404 | connect auth는 exact CSRF payload, Flask-WTF 검증, active 인증·DB version, same-origin, 사용자당 5개 cap을 만족해야 하고 Flask session을 변경하지 않는다. |
+| AC-405 | 모든 inbound event 전에 registry, current authenticated user, DB status/version과 최대 1800초를 재검증하고 실패 socket을 generic 오류로 종료한다. |
+| AC-406 | logout과 password 변경 commit 뒤 기존 `/chat` socket을 즉시 종료하며 dormant/version/age socket은 다음 event 또는 broadcast 전에 제거되고 재활성화해도 부활하지 않는다. |
+| AC-407 | global/direct send는 client sender·room을 받지 않고 server user를 sender로 저장하며 DB commit 성공 뒤 해당 server room에만 allowlisted payload를 emit한다. |
+| AC-408 | message는 exact schema, NFC·newline·strip, 1~500 code point, UTF-8 1~2000 bytes와 control 정책을 적용하고 malformed 시에도 사용자 message quota를 소비한다. |
+| AC-409 | global/direct 합산 message 5/10초·120/hour와 join 30/60초 monotonic limiter를 app별로 격리하고 여러 socket 우회를 차단한다. |
+| AC-410 | local Socket.IO 4.8.3 bundle은 공식 byte와 SHA-384가 일치하고 MIT notice·local SRI를 포함하며 runtime CDN과 inline script/style을 사용하지 않는다. |
+| AC-411 | 네 번째 migration만 추가해 boolean CHECK와 named index 4개를 만들고 Phase 03 downgrade·head re-upgrade·두 drift check에서 기존 schema를 보존한다. |
+| AC-412 | 기존 307개 테스트를 유지하고 HTTP·DB·Socket·room·static integrity·stale lifecycle을 추가 검증하며 app coverage 90% 이상과 품질 명령 결과를 사실대로 기록한다. |
 
 ## 상품 상태 전이와 이미지 정책
 
@@ -244,9 +265,9 @@ JPEG/PNG/WebP만 정규화 확장자로 재인코딩하며 저장 결과도 4 Mi
 | FR-101~112 | DESIGN의 인증·사용자 route/service/session 흐름 | T-AUTH-*, T-USER-*, T-MIG-02~05 | Phase 02 구현 |
 | FR-201~212 | DESIGN의 상품 route/service·이미지 경계·transaction | T-PRODUCT-*, T-IMAGE-*, T-MIG-07~ | Phase 03 구현 |
 | FR-301~305 | DESIGN의 검색 query와 allowlist | T-SEARCH-* | Phase 03 구현 |
-| FR-401~404 | DESIGN의 후속 단계 | T-DB-08~11은 DB 불변식만 검증 | Phase 04 예정 |
+| FR-401~404 | DESIGN의 chat HTTP/Socket/registry/room/transaction 흐름 | T-CHAT-HTTP-*, T-CHAT-CONNECT-*, T-CHAT-GLOBAL-*, T-CHAT-DIRECT-*, T-CHAT-STALE-* | Phase 04 구현 |
 | FR-501~508 | DESIGN의 후속 단계 | T-DB-05는 중복 DB 제약만 검증 | Phase 05 예정 |
 | FR-601~609 | 가입 Wallet 및 후속 송금 흐름 | T-AUTH-REG-*, T-DB-03, T-DB-06~07 | FR-601 구현, 송금 Phase 06 예정 |
 | FR-701~707 | DESIGN의 후속 관리자 단계 | 자동 업무 테스트 없음 | Phase 05 예정 |
-| SR-001~016 | DESIGN·THREAT_MODEL·SECURITY_FINDINGS | TEST_MATRIX의 자동·도구 검증 | Phase 03 상품 범위까지 구현, 후속 범위 예정 |
-| NFR-001~007 | DESIGN·README | T-MIG-*, T-TOOL-* | Phase 03 범위 구현·지속 검증 |
+| SR-001~020 | DESIGN·THREAT_MODEL·SECURITY_FINDINGS | TEST_MATRIX의 자동·도구 검증 | Phase 04 채팅 범위까지 구현, 후속 범위 예정 |
+| NFR-001~007 | DESIGN·README | T-MIG-*, T-CHAT-STATIC-*, T-TOOL-* | Phase 04 범위 구현·지속 검증 |

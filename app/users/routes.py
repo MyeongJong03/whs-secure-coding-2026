@@ -2,6 +2,7 @@ from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from app.extensions import limiter
+from app.chat.connections import disconnect_user_sockets
 from app.security import (
     authenticated_user_rate_limit_key,
     establish_authenticated_session,
@@ -100,6 +101,9 @@ def change_own_password():
         flash("비밀번호를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.", "error")
         return render_me(password_form=form, status=400)
 
+    user_id = current_user.get_id()
+    if user_id is not None:
+        disconnect_user_sockets(user_id)
     establish_authenticated_session(current_user)
     flash("비밀번호를 변경했습니다.", "success")
     return redirect(url_for("users.me"), code=303)

@@ -4,6 +4,7 @@ from flask_login import current_user, login_required, logout_user
 from app.auth import bp
 from app.auth.forms import LoginForm, LogoutForm, RegistrationForm
 from app.auth.services import RegistrationResult, authenticate_user, register_user
+from app.chat.connections import disconnect_user_sockets
 from app.extensions import limiter
 from app.security import establish_authenticated_session, no_store
 
@@ -63,6 +64,9 @@ def logout():
     form = LogoutForm()
     if not form.validate_on_submit():
         return render_template("errors/error.html", code=400), 400
+    user_id = current_user.get_id()
+    if user_id is not None:
+        disconnect_user_sockets(user_id)
     logout_user()
     session.clear()
     flash("로그아웃되었습니다.", "success")

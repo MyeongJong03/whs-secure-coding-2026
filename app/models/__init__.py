@@ -192,6 +192,12 @@ class DirectConversation(db.Model):
         db.CheckConstraint(
             "user1_id < user2_id", name="ck_direct_conversations_canonical_order"
         ),
+        db.Index(
+            "ix_direct_conversations_user1_created", "user1_id", "created_at", "id"
+        ),
+        db.Index(
+            "ix_direct_conversations_user2_created", "user2_id", "created_at", "id"
+        ),
     )
 
     id = db.Column(db.String(36), primary_key=True, default=new_uuid)
@@ -213,6 +219,17 @@ class ChatMessage(db.Model):
         db.CheckConstraint(
             "length(body) BETWEEN 1 AND 500", name="ck_chat_messages_body_length"
         ),
+        db.CheckConstraint(
+            "is_hidden IN (0, 1)", name="ck_chat_messages_is_hidden_boolean"
+        ),
+        db.Index(
+            "ix_chat_messages_conversation_visible_created",
+            "conversation_id",
+            "is_hidden",
+            "created_at",
+            "id",
+        ),
+        db.Index("ix_chat_messages_sender_created", "sender_id", "created_at", "id"),
     )
 
     id = db.Column(db.String(36), primary_key=True, default=new_uuid)

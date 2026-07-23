@@ -15,6 +15,8 @@
         {% if current_user.is_authenticated %}
           <a href="{{ url_for('products.new') }}">상품 등록</a>
           <a href="{{ url_for('products.mine') }}">내 상품</a>
+          <a href="{{ url_for('chat.global_chat') }}">전체 채팅</a>
+          <a href="{{ url_for('chat.direct_index') }}">1대1 채팅</a>
           <a href="{{ url_for('users.me') }}">마이페이지</a>
           <form class="nav-form" method="post" action="{{ url_for('auth.logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -38,5 +40,6 @@
       {% endwith %}
       {% block content %}{% endblock %}
     </main>
+    {% block scripts %}{% endblock %}
   </body>
 </html>

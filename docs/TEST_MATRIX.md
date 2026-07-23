@@ -12,7 +12,7 @@ application에만 등록되고 운영 source에는 없다. 테스트를 삭제·
 active/dormant loader, SQLite FK, username·Wallet·Product·Report·Transfer·DirectConversation
 제약과 scrypt 모델 동작을 계속 검증한다. Phase 02 session 정책에 맞게 기존 active/dormant
 loader 테스트는 실제 versioned 로그인으로 세션을 만든 뒤 같은 기대 결과를 확인한다.
-Phase 03 추가 전의 기존 143개 Phase 01·02 테스트는 삭제·skip·약화하지 않고 모두 유지한다.
+Phase 04 추가 전의 기존 307개 Phase 01~03 테스트는 삭제·skip·약화하지 않고 모두 유지한다.
 
 ## Phase 02 migration·모델
 
@@ -197,21 +197,98 @@ Phase 03 추가 전의 기존 143개 Phase 01·02 테스트는 삭제·skip·약
 | T-SEARCH-09 | 61 GET | 61번째 429 | PASS |
 | T-SEARCH-10 | service source | dynamic SQL text/정렬 문자열/unbounded all 없음 | PASS |
 
+## Phase 04 migration·DB·static
+
+| Test ID | 입력/행동 | 기대 결과 | 상태 |
+|---|---|---|---|
+| T-MIG-10 | 네 번째 revision source·파일 수 | Phase 03 down_revision, migration Python 4개, boolean CHECK·named index 4개 | PASS |
+| T-MIG-11 | 기존 세 migration과 `phase-03-products-search` tag | 세 파일 byte 동일 | PASS |
+| T-MIG-12 | 빈 DB head→Phase 03 downgrade→head와 두 db check | CHECK/index 전이, body CHECK·conversation FK 유지, drift 없음 | PASS |
+| T-CHAT-DB-01 | raw `is_hidden=-1/2` | DB IntegrityError·rollback | PASS |
+| T-CHAT-DB-02 | raw `is_hidden=0/1` | DB 저장·boolean 조회 | PASS |
+| T-CHAT-DB-03 | 모델 schema introspection | boolean CHECK, message 2/direct 2 named index | PASS |
+| T-CHAT-STATIC-01 | local Socket.IO bundle | 공식 banner 유지, SHA-384 exact match | PASS |
+| T-CHAT-STATIC-02 | chat template·notice·requirements | local URL+SRI, MIT/공식 URL, socketio/engineio/websocket exact pin | PASS |
+| T-CHAT-STATIC-03 | Socket server runtime config | threading, sync handler, 8192 buffer, same-origin, cookie 없음, `/chat` handler | PASS |
+| T-CHAT-STATIC-04 | `chat.js`·template source | textContent/createElement, 외부 URL·inline·innerHTML·eval 없음 | PASS |
+
+## Phase 04 HTTP와 DTO
+
+| Test ID | 입력/행동 | 기대 결과 | 상태 |
+|---|---|---|---|
+| T-CHAT-HTTP-01 | 비인증 global/direct index/page | login redirect | PASS |
+| T-CHAT-HTTP-02 | 인증 `/chat` page 1·2 | 200/private, latest 50·older 5, page 1만 live | PASS |
+| T-CHAT-HTTP-03 | global/direct page 0/1001/non-int | 400 | PASS |
+| T-CHAT-HTTP-04 | global/direct/hidden 혼합 history | scope 일치와 `is_hidden=False`만 표시 | PASS |
+| T-CHAT-HTTP-05 | script message history | Jinja escape, executable tag 없음 | PASS |
+| T-CHAT-HTTP-06 | 25 direct conversation+제3자 pair | 본인 page 20/5만 표시 | PASS |
+| T-CHAT-START-01 | CSRF 없음·malformed username | 400 또는 generic 303 | PASS |
+| T-CHAT-START-02 | active target 두 번 | canonical 한 row 생성 뒤 기존 재사용, 303 | PASS |
+| T-CHAT-START-03 | 자기/없는/dormant/current dormant | 같은 target unavailable 흐름 | PASS |
+| T-CHAT-START-04 | UNIQUE race·일반 DB 오류 | rollback 후 기존 row 또는 generic database error | PASS |
+| T-CHAT-START-05 | 사용자 21회/hour | 20회 처리, 21번째 429 | PASS |
+| T-CHAT-DIRECT-HTTP-01 | participant 2명·제3자·missing | participant 200, 제3자/missing 동일 404 | PASS |
+| T-CHAT-DIRECT-HTTP-02 | direct scope·hidden·다른 direct/global 혼합 | 해당 direct visible message만 표시 | PASS |
+| T-CHAT-DIRECT-HTTP-03 | dormant counterpart | history 200, live/send form 없음 | PASS |
+| T-CHAT-DTO-01 | history/direct DTO | frozen·slots, 내부 user/sender/role/version/status field 없음 | PASS |
+
+## Phase 04 Socket connect·global
+
+| Test ID | 입력/행동 | 기대 결과 | 상태 |
+|---|---|---|---|
+| T-CHAT-CONNECT-01 | 비인증+valid CSRF | connect 거부 | PASS |
+| T-CHAT-CONNECT-02 | auth 없음/빈/invalid/extra | connect 거부 | PASS |
+| T-CHAT-CONNECT-03 | 다른 Flask session CSRF | connect 거부 | PASS |
+| T-CHAT-CONNECT-04 | valid active session | connect·registry add, Flask session key 불변 | PASS |
+| T-CHAT-CONNECT-05 | dormant/version mismatch | connect 거부 | PASS |
+| T-CHAT-CONNECT-06 | 같은 user 6 sockets | 5개 허용, 6번째 거부 | PASS |
+| T-CHAT-CONNECT-07 | disconnect·두 app fixture | registry 제거·app별 registry/limiter identity 분리 | PASS |
+| T-CHAT-GLOBAL-01 | join 전 send·정상 join | `not_joined`, 정상 ack | PASS |
+| T-CHAT-GLOBAL-02 | sender/socket receiver/nonjoined socket | server sender 저장, joined 2명만 수신 | PASS |
+| T-CHAT-GLOBAL-03 | username/sender/is_hidden/extra spoof | strict schema `invalid_payload`, 저장 없음 | PASS |
+| T-CHAT-GLOBAL-04 | non-dict/missing/blank/501/byte/control | `invalid_payload`, 저장·broadcast 없음 | PASS |
+| T-CHAT-GLOBAL-05 | decomposed Unicode·CRLF/CR | NFC와 LF로 저장·emit | PASS |
+| T-CHAT-GLOBAL-06 | 500 emoji=2000 bytes·낮춘 byte config | 경계 허용·config 초과 거부 | PASS |
+| T-CHAT-GLOBAL-07 | DB commit SQLAlchemyError | rollback, `server_error`, room 미broadcast | PASS |
+| T-CHAT-RATE-01 | 6 burst·두 sid 교차 | user 합산 5개 저장, 6번째 rate_limited | PASS |
+| T-CHAT-RATE-02 | 낮춘 hourly·join limit과 clock | 정확한 임계치, expiry 뒤 prune·재허용 | PASS |
+| T-CHAT-RATE-03 | malformed send 5회 뒤 valid | malformed도 quota 소비, valid rate_limited | PASS |
+
+## Phase 04 direct room·stale lifecycle
+
+| Test ID | 입력/행동 | 기대 결과 | 상태 |
+|---|---|---|---|
+| T-CHAT-DIRECT-01 | participant 둘·제3자 direct join | participant ack, 제3자 `not_found` | PASS |
+| T-CHAT-DIRECT-02 | invalid UUID·missing key·room extra | `invalid_payload` 또는 generic `not_found` | PASS |
+| T-CHAT-DIRECT-03 | join 없이 send·다른 conversation | `not_joined`, 저장 없음 | PASS |
+| T-CHAT-DIRECT-04 | 정상 direct send | exact conversation 저장, 두 participant만 수신 | PASS |
+| T-CHAT-DIRECT-05 | 제3자 global room | direct message 미수신 | PASS |
+| T-CHAT-DIRECT-06 | sender spoof·extra key | `invalid_payload`, 저장 없음 | PASS |
+| T-CHAT-DIRECT-07 | join 뒤 conversation 삭제·counterpart dormant | 매 send 재조회로 `not_found`/`unavailable` | PASS |
+| T-CHAT-DIRECT-08 | direct DB commit 오류 | rollback, 두 participant 모두 미수신 | PASS |
+| T-CHAT-ERROR-01 | handler 강제 exception | client generic `server_error`, event name-only log, body/token/traceback 없음 | PASS |
+| T-CHAT-STALE-01 | HTTP logout 뒤 기존 socket | 즉시 disconnect, 이후 broadcast 미수신 | PASS |
+| T-CHAT-STALE-02 | password 변경 | old socket 즉시 disconnect, 새 HTTP session socket connect | PASS |
+| T-CHAT-STALE-03 | DB auth_version 증가 후 old send | event 전 disconnect, 저장 없음 | PASS |
+| T-CHAT-STALE-04 | dormant 뒤 다른 user broadcast | broadcast 전 disconnect·미수신 | PASS |
+| T-CHAT-STALE-05 | dormant→active 복구 | 과거 socket 미부활 | PASS |
+| T-CHAT-STALE-06 | injected clock max age event/broadcast | stale sender/receiver 사전 disconnect | PASS |
+
 ## 최종 자동화 결과
 
 2026-07-23 최종 검증 기준:
 
 | 명령/범위 | 결과 |
 |---|---|
-| `.venv/bin/python -m pytest` | PASS, 307 tests |
-| `.venv/bin/python -m pytest --cov=app --cov-report=term-missing` | PASS, app 95% |
+| `.venv/bin/python -m pytest` | PASS, 408 tests |
+| `.venv/bin/python -m pytest --cov=app --cov-report=term-missing` | PASS, app 96% |
 | Ruff lint/format | PASS |
 | Bandit app/scripts/run.py | PASS, finding 없음 |
 | runtime/dev pip-audit | PASS, 알려진 취약점 없음 |
 | pip check, compileall, diff check | PASS |
 | Alembic 전체 이력·drift·route 확인 | PASS |
 
-이 수치는 현재 Phase 03 `app` 코드 coverage이며 아직 미구현된 전체 과제 기능의 coverage가
+이 수치는 현재 Phase 04 `app` 코드 coverage이며 아직 미구현된 전체 과제 기능의 coverage가
 아니다. 중간 실패는 수정 뒤 동일 범위를 재실행했으며 최종 결과와 별도로 최종 작업 보고에
 원문과 해결 내용을 기록한다.
 
@@ -219,7 +296,7 @@ Phase 03 추가 전의 기존 143개 Phase 01·02 테스트는 삭제·skip·약
 
 | Phase | 범위 | 상태 |
 |---|---|---|
-| Phase 03 | 상품 CRUD·소유권, 이미지 위장/손상/path/pixel, 상품 검색 필터·정렬·pagination | 구현·검증 |
-| Phase 04 | Socket 인증, 전체/1대1 저장, sender 위조, 참여자 IDOR, event rate limit | 예정 |
+| Phase 03 | 상품 CRUD·소유권, 이미지 위장/손상/path/pixel, 상품 검색 필터·정렬·pagination | 회귀 유지 |
+| Phase 04 | Socket 인증, 전체/1대1 저장, sender 위조, 참여자 IDOR, stale lifecycle, event rate limit | 구현·검증 |
 | Phase 05 | 신고 대상·중복/race·3명 제재, 관리자 role·복구·감사 | 예정 |
 | Phase 06 | 송금 양수·자기·초과·rollback·동시성·멱등·원장 불변성과 최종 통합 | 예정 |
