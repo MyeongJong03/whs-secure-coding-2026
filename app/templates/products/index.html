@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}상품 목록 - Secure Market{% endblock %}
+{% block content %}
+  <h1>상품 목록</h1>
+  <form method="get" action="{{ url_for('products.index') }}" class="search-form">
+    <div class="form-field">
+      {{ form.q.label }}
+      {{ form.q(maxlength="100") }}
+      {% for error in form.q.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        {{ form.status.label }}
+        {{ form.status }}
+        {% for error in form.status.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="form-field">
+        {{ form.min_price.label }}
+        {{ form.min_price(min="1", max="1000000000", step="1") }}
+        {% for error in form.min_price.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="form-field">
+        {{ form.max_price.label }}
+        {{ form.max_price(min="1", max="1000000000", step="1") }}
+        {% for error in form.max_price.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+      <div class="form-field">
+        {{ form.sort.label }}
+        {{ form.sort }}
+        {% for error in form.sort.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      </div>
+    </div>
+    <button type="submit">검색</button>
+  </form>
+
+  {% if page %}
+    <p>총 {{ page.total }}개 상품</p>
+    <section class="product-grid" aria-label="상품 검색 결과">
+      {% for product in page.items %}
+        <article class="product-card">
+          <a href="{{ url_for('products.detail', product_id=product.id) }}">
+            <img
+              src="{{ url_for('products.image', product_id=product.id) }}"
+              alt="{{ product.title }} 상품 이미지"
+              loading="lazy"
+            >
+            <h2>{{ product.title }}</h2>
+          </a>
+          <p class="price">{{ "{:,}".format(product.price) }}원</p>
+          <p><span class="status status-{{ product.status }}">{{ "판매 중" if product.status == "active" else "판매 완료" }}</span></p>
+          <p>판매자: {{ product.seller_username }}</p>
+        </article>
+      {% else %}
+        <p>조건에 맞는 상품이 없습니다.</p>
+      {% endfor %}
+    </section>
+
+    {% if page.has_prev or page.has_next %}
+      <nav class="pagination" aria-label="상품 페이지">
+        {% if page.has_prev %}
+          <a href="{{ url_for('products.index', q=form.q.data, status=form.status.data, min_price=form.min_price.data, max_price=form.max_price.data, sort=form.sort.data, page=page.prev_num) }}">이전</a>
+        {% endif %}
+        <span>{{ page.page }} / {{ page.pages }}</span>
+        {% if page.has_next %}
+          <a href="{{ url_for('products.index', q=form.q.data, status=form.status.data, min_price=form.min_price.data, max_price=form.max_price.data, sort=form.sort.data, page=page.next_num) }}">다음</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}내 상품 - Secure Market{% endblock %}
+{% block content %}
+  <h1>내 상품</h1>
+  <section class="owner-products" aria-label="내 상품 목록">
+    {% for product in products %}
+      <article class="owner-product">
+        {% if product.has_image %}
+          <img
+            src="{{ url_for('products.image', product_id=product.id) }}"
+            alt="{{ product.title }} 상품 이미지"
+            loading="lazy"
+          >
+        {% endif %}
+        <div>
+          <h2>{{ product.title }}</h2>
+          <p class="price">{{ "{:,}".format(product.price) }}원</p>
+          <p><span class="status status-{{ product.status }}">{{ product.status }}</span></p>
+          <p class="product-description">{{ product.description }}</p>
+          {% if product.status in ("active", "sold") %}
+            <a href="{{ url_for('products.edit', product_id=product.id) }}">수정</a>
+            <form method="post" action="{{ url_for('products.status', product_id=product.id) }}" class="inline-form">
+              {{ status_form.csrf_token }}
+              <input type="hidden" name="status" value="{{ 'sold' if product.status == 'active' else 'active' }}">
+              <button type="submit">{{ "판매 완료" if product.status == "active" else "판매 재개" }}</button>
+            </form>
+          {% endif %}
+          {% if product.status != "deleted" %}
+            <form method="post" action="{{ url_for('products.delete', product_id=product.id) }}" class="inline-form">
+              {{ delete_form.csrf_token }}
+              <button type="submit">삭제</button>
+            </form>
+          {% endif %}
+        </div>
+      </article>
+    {% else %}
+      <p>등록한 상품이 없습니다.</p>
+    {% endfor %}
+  </section>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}상품 등록 - Secure Market{% endblock %}
+{% block content %}
+  <h1>상품 등록</h1>
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('products.create') }}">
+    {{ form.hidden_tag() }}
+    <div class="form-field">
+      {{ form.title.label }}
+      {{ form.title(maxlength="100") }}
+      {% for error in form.title.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div class="form-field">
+      {{ form.description.label }}
+      {{ form.description(maxlength="2000", rows="8") }}
+      {% for error in form.description.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div class="form-field">
+      {{ form.price.label }}
+      {{ form.price(min="1", max="1000000000", step="1") }}
+      {% for error in form.price.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    <div class="form-field">
+      {{ form.image.label }}
+      {{ form.image(accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp") }}
+      <p class="field-help">JPEG, PNG 또는 WebP, 최대 4 MiB</p>
+      {% for error in form.image.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    {{ form.submit() }}
+  </form>
+{% endblock %}

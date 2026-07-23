@@ -22,3 +22,12 @@
 | FIG-15 | 마이페이지 | 캡처 필요 | `fig-15-me.png` | Phase 02 구현 | 본인 bio·가상 포인트와 금융 자산 아님 안내 | session·UUID 제외 |
 | FIG-16 | 비밀번호 변경과 다른 세션 무효화 | 캡처 필요 | `fig-16-password-session.png` | Phase 02 보안 검증 | 현재 client 유지·과거 client anonymous | password·hash·cookie·auth_version 원문 제외 |
 | FIG-17 | Phase 02 pytest 요약 | 캡처 필요 | `fig-17-phase02-pytest.png` | 테스트 | 테스트 수와 app coverage | 절대경로·환경 정보 crop/redact |
+| FIG-18 | 공개 상품 목록 | 캡처 필요 | `fig-18-products.png` | Phase 03 구현 | active/sold 상품과 이미지 | 내부 UUID·저장 filename·private URL 제외 |
+| FIG-19 | 상품 등록과 이미지 | 캡처 필요 | `fig-19-product-create.png` | Phase 03 구현 | 필수 입력과 안전 이미지 등록 | 원본 filename·로컬 경로·cookie 제외 |
+| FIG-20 | 공개 상품 상세 | 캡처 필요 | `fig-20-product-detail.png` | Phase 03 구현 | 상품과 판매자 username 최소 공개 | seller UUID·hash·role·filename 제외 |
+| FIG-21 | 내 상품 관리 | 캡처 필요 | `fig-21-my-products.png` | Phase 03 구현 | 모든 본인 상태와 수정·삭제 form | 다른 사용자 정보·cookie 제외 |
+| FIG-22 | 판매 완료 전환 | 캡처 필요 | `fig-22-product-sold.png` | Phase 03 구현 | active에서 sold POST 전환 | CSRF token·session 제외 |
+| FIG-23 | 검색·가격·정렬 | 캡처 필요 | `fig-23-product-search.png` | Phase 03 구현 | q/status/price/sort/pagination | private URL·개인 경로 제외 |
+| FIG-24 | 타 사용자 수정 차단 | 캡처 필요 | `fig-24-product-idor.png` | Phase 03 보안 | 타인과 없는 상품 동일 404 | 실제 계정·UUID는 테스트 값만 사용 |
+| FIG-25 | 위험 이미지 거부 | 캡처 필요 | `fig-25-image-rejected.png` | Phase 03 보안 | 일반 upload 오류 화면 | 공격 filename·path·exception 비노출 확인 |
+| FIG-26 | Phase 03 pytest 결과 | 캡처 필요 | `fig-26-phase03-pytest.png` | 테스트 | 전체 테스트 수와 현재 app coverage | 절대경로·환경 정보 crop/redact |

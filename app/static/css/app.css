@@ -56,7 +56,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   box-sizing: border-box;
   max-width: 32rem;
   padding: 0.6rem;
@@ -96,4 +97,76 @@ input[type="submit"] {
 .pagination {
   display: flex;
   gap: 1rem;
+}
+
+.form-row,
+.product-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.product-card,
+.owner-product {
+  border: 1px solid #d9e2ec;
+  border-radius: 0.4rem;
+  padding: 1rem;
+}
+
+.product-card img,
+.owner-product img,
+.product-detail img {
+  display: block;
+  height: 12rem;
+  object-fit: contain;
+  width: 100%;
+}
+
+.product-card a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.price {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.status {
+  border-radius: 999px;
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+}
+
+.status-active {
+  background: #d9f2e3;
+  color: #146c2e;
+}
+
+.status-sold,
+.status-hidden,
+.status-deleted {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.product-description {
+  white-space: pre-wrap;
+}
+
+.owner-product {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(8rem, 12rem) 1fr;
+  margin-bottom: 1rem;
+}
+
+.inline-form {
+  display: inline-block;
+  margin-left: 0.5rem;
+}
+
+.field-help {
+  color: #52606d;
+  font-size: 0.9rem;
 }

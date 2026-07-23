@@ -12,6 +12,7 @@ application에만 등록되고 운영 source에는 없다. 테스트를 삭제·
 active/dormant loader, SQLite FK, username·Wallet·Product·Report·Transfer·DirectConversation
 제약과 scrypt 모델 동작을 계속 검증한다. Phase 02 session 정책에 맞게 기존 active/dormant
 loader 테스트는 실제 versioned 로그인으로 세션을 만든 뒤 같은 기대 결과를 확인한다.
+Phase 03 추가 전의 기존 143개 Phase 01·02 테스트는 삭제·skip·약화하지 않고 모두 유지한다.
 
 ## Phase 02 migration·모델
 
@@ -112,21 +113,105 @@ loader 테스트는 실제 versioned 로그인으로 세션을 만든 뒤 같은
 | T-SEC-05 | 일반 가입 권한 필드·외부 redirect | admin 획득·open redirect 불가 | PASS |
 | T-SEC-06 | 중복·DB 오류·404/429/500 | constraint, traceback, 절대경로 비노출 | PASS |
 
+## Phase 03 migration·DB
+
+| 테스트 ID | 정상/비정상 조건 | DB/filesystem/HTTP 예상 결과 | 자동화 결과 |
+|---|---|---|---|
+| T-MIG-07 | 세 번째 revision chain·세 파일 수 | Phase 02 down_revision, migration 3개 | PASS |
+| T-MIG-08 | 이전 두 migration과 보존 tag | byte 동일 | PASS |
+| T-MIG-09 | 빈 DB head→Phase 02 downgrade→head | CHECK/UNIQUE/index 전이, drift 없음 | PASS |
+| T-PRODUCT-DB-01 | price 0/-1/1,000,000,001 | DB IntegrityError·rollback | PASS |
+| T-PRODUCT-DB-02 | price 1/1,000,000,000 | DB commit | PASS |
+| T-PRODUCT-DB-03 | 중복 image_filename·복수 NULL | 중복 거부, legacy NULL 허용 | PASS |
+| T-PRODUCT-DB-04 | inspector named schema | CHECK·UNIQUE·3 index column 일치 | PASS |
+
+## 상품 생성·이미지
+
+| 테스트 ID | 정상/비정상 조건 | DB/filesystem/HTTP 예상 결과 | 자동화 결과 |
+|---|---|---|---|
+| T-PRODUCT-CREATE-01 | 비인증/GET/CSRF 없음 | login redirect/200/400, private cache | PASS |
+| T-PRODUCT-CREATE-02 | JPEG/PNG/WebP 정상 | 303, current seller, active, trim, row+0600 파일 | PASS |
+| T-PRODUCT-CREATE-03 | 임의 seller/status/image_filename | 무시하고 서버 값 저장 | PASS |
+| T-PRODUCT-CREATE-04 | title/description/price/image 경계 | 400, row·파일 없음 | PASS |
+| T-PRODUCT-CREATE-05 | DB commit 오류 | rollback, 신규 파일 제거 | PASS |
+| T-PRODUCT-CREATE-06 | 사용자 POST 11회 | 11번째 429 | PASS |
+| T-IMAGE-01 | actual format·extension·mode | JPEG→jpg/RGB, PNG/WebP→RGB(A) | PASS |
+| T-IMAGE-02 | empty/text/SVG/BMP/GIF/corrupt/mismatch | 일반 validation 오류, 저장 없음 | PASS |
+| T-IMAGE-03 | separator/NUL/unsafe extension | 일반 validation 오류, 외부 경로 영향 없음 | PASS |
+| T-IMAGE-04 | input byte/dimension/pixel/warning | bounded read, limit 초과 거부 | PASS |
+| T-IMAGE-05 | animated PNG/WebP | 거부 | PASS |
+| T-IMAGE-06 | EXIF/comment/ICC/PNG text | 방향 적용, metadata 제거 | PASS |
+| T-IMAGE-07 | trailing script/ZIP marker | 재인코딩 결과에 marker 없음 | PASS |
+| T-IMAGE-08 | random collision | O_EXCL, 기존 file byte 불변, 새 random name | PASS |
+| T-IMAGE-09 | unsafe DB name/symlink/missing/oversize | read/remove 거부, HTTP 404 | PASS |
+| T-IMAGE-10 | 저장 root/file mode | 0700/0600 | PASS |
+| T-IMAGE-11 | 5 MiB 요청 초과 | 일반 413, 원본명·path·exception 비노출 | PASS |
+| T-IMAGE-12 | configured upload root가 external directory symlink | store 일반 오류, read None/HTTP 404, remove false | PASS |
+| T-IMAGE-13 | root symlink store/read/remove와 inode mismatch | target 새 파일·기존 byte·directory mode 무변경, mismatch descriptor close | PASS |
+| T-IMAGE-14 | store filesystem open 추적 | random relative filename과 root dir_fd, file 0600·root 0700 | PASS |
+| T-IMAGE-15 | disk의 valid JPEG/PNG/WebP가 현재 dimension 초과 | read None/HTTP 404 | PASS |
+| T-IMAGE-16 | disk image가 현재 pixel 초과·animation·bomb warning | read None/HTTP 404 | PASS |
+| T-IMAGE-17 | 정상 store 뒤 read | content·MIME·extension 정상 | PASS |
+
+## 환경 bootstrap
+
+| 테스트 ID | 정상/비정상 조건 | filesystem/CLI 예상 결과 | 자동화 결과 |
+|---|---|---|---|
+| T-BOOTSTRAP-01 | 기본 `.env.example`과 기본 target | placeholder 한 곳 교체, 다른 항목 보존, Secret Key 32자 이상, mode 0600 | PASS |
+| T-BOOTSTRAP-02 | CLI 성공 | target path와 다음 단계만 출력, 생성 Secret Key stdout/stderr 부재 | PASS |
+| T-BOOTSTRAP-03 | 기존 target·placeholder 0/2개·없는 example | nonzero/exception, 기존 bytes 불변, 새 target 없음 | PASS |
+| T-BOOTSTRAP-04 | 부분 write 오류·custom tmp target | 부분 target cleanup, 저장소 실제 `.env` 무변경 | PASS |
+
+## 공개·소유자 상품
+
+| 테스트 ID | 정상/비정상 조건 | DB/filesystem/HTTP 예상 결과 | 자동화 결과 |
+|---|---|---|---|
+| T-PRODUCT-PUBLIC-01 | active/sold + active seller | 목록·상세·image 200 | PASS |
+| T-PRODUCT-PUBLIC-02 | hidden/deleted/dormant seller | 공개 목록 제외, 상세·image 404 | PASS |
+| T-PRODUCT-PUBLIC-03 | 없는/잘못된 UUID | 동일 404 | PASS |
+| T-PRODUCT-PUBLIC-04 | 저장 XSS·민감 field | escape, username만 공개, UUID/hash/role/balance/file명 없음 | PASS |
+| T-PRODUCT-PUBLIC-05 | SQL/DTO/template context | explicit projection, frozen slots DTO, ORM 객체 없음 | PASS |
+| T-PRODUCT-PUBLIC-06 | image format/header/cache | 실제 MIME, nosniff, generic inline name, public cache | PASS |
+| T-PRODUCT-OWNER-01 | 본인/타인과 4개 상태 | 본인 전체만 private 목록 | PASS |
+| T-PRODUCT-OWNER-02 | active/sold edit와 임의 field | 허용 field만 commit, owner/status/image 유지 | PASS |
+| T-PRODUCT-OWNER-03 | 이미지 교체 성공/DB 실패 | 성공 old 제거; 실패 new 제거·old 유지 | PASS |
+| T-PRODUCT-OWNER-04 | 타인 edit/status/delete | 동일 404, DB 불변 | PASS |
+| T-PRODUCT-OWNER-05 | active↔sold/same status | 303, allowlisted DB 상태 | PASS |
+| T-PRODUCT-OWNER-06 | hidden/deleted 수정·복구 | 404/409, DB 불변 | PASS |
+| T-PRODUCT-OWNER-07 | soft delete | row+file 유지, status deleted, 공개 즉시 404 | PASS |
+| T-PRODUCT-OWNER-08 | owner 비공개 image/타인 | owner 200 private no-store, 타인 404 | PASS |
+| T-PRODUCT-OWNER-09 | mutation CSRF/method/rate | 400/405/429 | PASS |
+
+## 상품 검색
+
+| 테스트 ID | 정상/비정상 조건 | DB/filesystem/HTTP 예상 결과 | 자동화 결과 |
+|---|---|---|---|
+| T-SEARCH-01 | title/description substring | 공개 일치 row만 200 | PASS |
+| T-SEARCH-02 | `%`, `_`, SQLi 형태 | literal parameter binding, 오류·확장 매치 없음 | PASS |
+| T-SEARCH-03 | all/active/sold와 hidden/deleted 요청 | 공개 allowlist만, 비공개 항상 제외 | PASS |
+| T-SEARCH-04 | min/max/both/min>max | 범위 결과 또는 400 | PASS |
+| T-SEARCH-05 | 다섯 sort | 완성 expression allowlist와 id 안정 정렬 | PASS |
+| T-SEARCH-06 | q/status/sort/page/price invalid | 400 | PASS |
+| T-SEARCH-07 | 21개·client per_page=100 | SQL LIMIT 20, page link filter 유지 | PASS |
+| T-SEARCH-08 | 빈 결과 | 200 정상 empty page | PASS |
+| T-SEARCH-09 | 61 GET | 61번째 429 | PASS |
+| T-SEARCH-10 | service source | dynamic SQL text/정렬 문자열/unbounded all 없음 | PASS |
+
 ## 최종 자동화 결과
 
 2026-07-23 최종 검증 기준:
 
 | 명령/범위 | 결과 |
 |---|---|
-| `.venv/bin/python -m pytest` | PASS, 143 tests |
-| `.venv/bin/python -m pytest --cov=app --cov-report=term-missing` | PASS, app 99% |
+| `.venv/bin/python -m pytest` | PASS, 307 tests |
+| `.venv/bin/python -m pytest --cov=app --cov-report=term-missing` | PASS, app 95% |
 | Ruff lint/format | PASS |
-| Bandit app/run.py | PASS, High/Medium 미해결 finding 없음 |
+| Bandit app/scripts/run.py | PASS, finding 없음 |
 | runtime/dev pip-audit | PASS, 알려진 취약점 없음 |
 | pip check, compileall, diff check | PASS |
 | Alembic 전체 이력·drift·route 확인 | PASS |
 
-이 수치는 현재 Phase 02 `app` 코드 coverage이며 아직 미구현된 전체 과제 기능의 coverage가
+이 수치는 현재 Phase 03 `app` 코드 coverage이며 아직 미구현된 전체 과제 기능의 coverage가
 아니다. 중간 실패는 수정 뒤 동일 범위를 재실행했으며 최종 결과와 별도로 최종 작업 보고에
 원문과 해결 내용을 기록한다.
 
@@ -134,7 +219,7 @@ loader 테스트는 실제 versioned 로그인으로 세션을 만든 뒤 같은
 
 | Phase | 범위 | 상태 |
 |---|---|---|
-| Phase 03 | 상품 CRUD·소유권, 이미지 위장/손상/path/pixel, 상품 검색 필터·정렬·pagination | 예정 |
+| Phase 03 | 상품 CRUD·소유권, 이미지 위장/손상/path/pixel, 상품 검색 필터·정렬·pagination | 구현·검증 |
 | Phase 04 | Socket 인증, 전체/1대1 저장, sender 위조, 참여자 IDOR, event rate limit | 예정 |
 | Phase 05 | 신고 대상·중복/race·3명 제재, 관리자 role·복구·감사 | 예정 |
 | Phase 06 | 송금 양수·자기·초과·rollback·동시성·멱등·원장 불변성과 최종 통합 | 예정 |

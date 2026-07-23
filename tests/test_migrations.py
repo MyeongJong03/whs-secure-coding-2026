@@ -14,11 +14,15 @@ from app.models import User
 
 FIRST_REVISION = "09357cac1cb7"
 SECOND_REVISION = "57c21fbc6f83"
+THIRD_REVISION = "c3d57de11bfa"
 FIRST_MIGRATION = Path(
     "migrations/versions/09357cac1cb7_create_secure_foundation_models.py"
 )
 SECOND_MIGRATION = Path(
     "migrations/versions/57c21fbc6f83_add_authentication_version_to_users.py"
+)
+THIRD_MIGRATION = Path(
+    "migrations/versions/c3d57de11bfa_add_secure_product_constraints_and_indexes.py"
 )
 
 
@@ -92,6 +96,29 @@ def test_phase_one_migration_is_unchanged_from_preserved_tag():
     assert FIRST_MIGRATION.read_bytes() == tagged
 
 
+def test_phase_two_migration_is_unchanged_from_preserved_tag():
+    for migration in (FIRST_MIGRATION, SECOND_MIGRATION):
+        tagged = subprocess.run(
+            ["git", "show", f"phase-02-auth-users:{migration.as_posix()}"],
+            check=True,
+            capture_output=True,
+        ).stdout
+        assert migration.read_bytes() == tagged
+
+
+def test_third_migration_chain_constraints_and_indexes():
+    source = THIRD_MIGRATION.read_text(encoding="utf-8")
+
+    assert f'revision = "{THIRD_REVISION}"' in source
+    assert f'down_revision = "{SECOND_REVISION}"' in source
+    assert "ck_products_price_range" in source
+    assert "uq_products_image_filename" in source
+    assert "ix_products_public_status_created" in source
+    assert "ix_products_seller_status_updated" in source
+    assert "ix_products_price" in source
+    assert len(tuple(Path("migrations/versions").glob("*.py"))) == 3
+
+
 def test_full_migration_upgrade_downgrade_reupgrade_and_drift_check(tmp_path):
     database_path = tmp_path / "migration-check.sqlite"
 
@@ -99,7 +126,7 @@ def test_full_migration_upgrade_downgrade_reupgrade_and_drift_check(tmp_path):
     assert_flask_success(upgrade)
     current = run_flask(database_path, "db", "current")
     assert_flask_success(current)
-    assert SECOND_REVISION in current.stdout
+    assert THIRD_REVISION in current.stdout
     check = run_flask(database_path, "db", "check")
     assert_flask_success(check)
 
@@ -114,13 +141,18 @@ def test_full_migration_upgrade_downgrade_reupgrade_and_drift_check(tmp_path):
     assert str(columns["auth_version"][4]).strip("'\"") == "1"
     assert "ck_users_auth_version_positive" in schema
 
-    downgrade = run_flask(database_path, "db", "downgrade", FIRST_REVISION)
+    downgrade = run_flask(database_path, "db", "downgrade", SECOND_REVISION)
     assert_flask_success(downgrade)
     with sqlite3.connect(database_path) as connection:
-        downgraded_columns = {
-            row[1] for row in connection.execute("PRAGMA table_info(users)")
+        downgraded_schema = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='products'"
+        ).fetchone()[0]
+        downgraded_indexes = {
+            row[1] for row in connection.execute("PRAGMA index_list(products)")
         }
-    assert "auth_version" not in downgraded_columns
+    assert "ck_products_price_positive" in downgraded_schema
+    assert "ck_products_price_range" not in downgraded_schema
+    assert "ix_products_public_status_created" not in downgraded_indexes
 
     reupgrade = run_flask(database_path, "db", "upgrade")
     assert_flask_success(reupgrade)

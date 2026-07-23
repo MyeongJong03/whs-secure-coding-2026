@@ -37,6 +37,10 @@ def create_app(
         app.config.update(test_config)
     if selected_config != "testing":
         app.config["SECRET_KEY"] = validate_secret_key(app.config.get("SECRET_KEY"))
+    if app.config.get("PRODUCT_UPLOAD_DIR") is None:
+        app.config["PRODUCT_UPLOAD_DIR"] = os.path.join(
+            app.instance_path, "uploads", "products"
+        )
 
     os.makedirs(app.instance_path, exist_ok=True)
     db.init_app(app)
@@ -49,12 +53,14 @@ def create_app(
     from app.main import bp as main_bp
     from app.auth import bp as auth_bp
     from app.models import User
+    from app.products import bp as products_bp
     from app.security import clear_authentication_session
     from app.users import bp as users_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(users_bp)
+    app.register_blueprint(products_bp)
     app.extensions["auth_dummy_hash"] = generate_password_hash(
         secrets.token_urlsafe(32)
     )
@@ -106,7 +112,7 @@ def register_security_headers(app: Flask) -> None:
 
 
 def register_error_handlers(app: Flask) -> None:
-    for status_code in (400, 403, 404, 429):
+    for status_code in (400, 403, 404, 405, 409, 413, 429):
         app.register_error_handler(
             status_code,
             lambda _error, code=status_code: (

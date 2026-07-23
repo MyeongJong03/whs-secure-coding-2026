@@ -108,11 +108,22 @@ class Product(db.Model):
             "length(description) BETWEEN 1 AND 2000",
             name="ck_products_description_length",
         ),
-        db.CheckConstraint("price > 0", name="ck_products_price_positive"),
+        db.CheckConstraint(
+            "price BETWEEN 1 AND 1000000000", name="ck_products_price_range"
+        ),
         db.CheckConstraint(
             "status IN ('active', 'hidden', 'sold', 'deleted')",
             name="ck_products_status",
         ),
+        db.UniqueConstraint("image_filename", name="uq_products_image_filename"),
+        db.Index("ix_products_public_status_created", "status", "created_at"),
+        db.Index(
+            "ix_products_seller_status_updated",
+            "seller_id",
+            "status",
+            "updated_at",
+        ),
+        db.Index("ix_products_price", "price"),
     )
 
     id = db.Column(db.String(36), primary_key=True, default=new_uuid)

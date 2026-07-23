@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ product.title }} - Secure Market{% endblock %}
+{% block content %}
+  <article class="product-detail">
+    <h1>{{ product.title }}</h1>
+    <img
+      src="{{ url_for('products.image', product_id=product.id) }}"
+      alt="{{ product.title }} 상품 이미지"
+    >
+    <p class="price">{{ "{:,}".format(product.price) }}원</p>
+    <p><span class="status status-{{ product.status }}">{{ "판매 중" if product.status == "active" else "판매 완료" }}</span></p>
+    <p>판매자: {{ product.seller_username }}</p>
+    <p>등록일: {{ product.created_at.strftime("%Y-%m-%d") }}</p>
+    <p class="product-description">{{ product.description }}</p>
+  </article>
+{% endblock %}
