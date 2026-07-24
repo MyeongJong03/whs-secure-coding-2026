@@ -697,7 +697,7 @@ def list_audit_logs(
     filters = []
     if query:
         filters.append(AuditLog.action.contains(query, autoescape=True))
-    if target_type in {"user", "product", "report", "message"}:
+    if target_type in {"user", "product", "report", "message", "transfer"}:
         filters.append(AuditLog.target_type == target_type)
     order = (
         (AuditLog.created_at.asc(), AuditLog.id.asc())

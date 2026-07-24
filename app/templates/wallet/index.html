@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}지갑 - Secure Market{% endblock %}
+{% block content %}
+  <h1>과제용 가상 포인트 지갑</h1>
+  <p class="notice">
+    본 포인트는 과제용 가상 포인트입니다. 실제 금융 자산, 현금 또는 결제 수단이 아닙니다.
+  </p>
+  <section aria-labelledby="wallet-summary-heading">
+    <h2 id="wallet-summary-heading">지갑 요약</h2>
+    <p><strong>{{ wallet.username }}</strong>님의 현재 잔액</p>
+    <p class="price">{{ wallet.balance }} 포인트</p>
+    <p><a href="{{ url_for('wallet.transfer_form') }}">가상 포인트 송금</a></p>
+  </section>
+
+  <section aria-labelledby="transfer-history-heading">
+    <h2 id="transfer-history-heading">송금 이력</h2>
+    <form method="get">
+      <div class="form-row">
+        <div class="form-field">
+          {{ form.direction.label }}
+          {{ form.direction }}
+        </div>
+        <div class="form-field">
+          {{ form.sort.label }}
+          {{ form.sort }}
+        </div>
+      </div>
+      <button type="submit">조회</button>
+    </form>
+
+    {% if page.items %}
+      <table>
+        <thead>
+          <tr>
+            <th>방향</th>
+            <th>상대 사용자</th>
+            <th>금액</th>
+            <th>일시</th>
+            <th>상세</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for transfer in page.items %}
+            <tr>
+              <td>{{ "보냄" if transfer.direction == "sent" else "받음" }}</td>
+              <td>{{ transfer.counterpart_username }}</td>
+              <td>{{ transfer.amount }}</td>
+              <td>{{ transfer.created_at }}</td>
+              <td>
+                <a href="{{ url_for('wallet.transfer_detail', transfer_id=transfer.id) }}">상세 보기</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>표시할 송금 이력이 없습니다.</p>
+    {% endif %}
+
+    <nav class="pagination" aria-label="송금 이력 페이지">
+      {% if page.has_prev %}
+        <a href="{{ url_for('wallet.index', page=page.prev_num, **pagination_params) }}">이전</a>
+      {% endif %}
+      <span>{{ page.page }} / {{ page.pages or 1 }}</span>
+      {% if page.has_next %}
+        <a href="{{ url_for('wallet.index', page=page.next_num, **pagination_params) }}">다음</a>
+      {% endif %}
+    </nav>
+  </section>
+{% endblock %}

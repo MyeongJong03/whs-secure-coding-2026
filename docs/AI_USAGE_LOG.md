@@ -14,6 +14,8 @@
 | Codex CLI | Phase 04 전체·1대1 채팅 설계·구현·테스트 지원 | HTTP history/direct route, Socket connect CSRF·event 인증, server sender·participant room, per-app registry·stale disconnect, custom limiter, local client·네 번째 migration과 문서 작성 | 사람이 DB schema·transaction, HTTP status/header/DTO, Socket connect/event/room delivery, logout/password/dormant lifecycle와 static asset SHA-384를 직접 검증하고 전체 pytest·coverage·Ruff·Bandit·pip-audit·Alembic 명령으로 확인 |
 | Codex CLI | Phase 05 신고·자동 제재·관리자·감사 설계·구현·테스트 지원 | reason policy, server-derived report target, distinct threshold, admin CLI/RBAC/reauth, user/product/report/message mutation, Transfer projection, audit allowlist, 다섯 번째 migration과 문서 작성 | 사람이 DB schema·constraint·transaction, HTTP CSRF/status/header/DTO, status version·Socket disconnect, audit actor/details/redaction, CLI output와 권한 diff를 직접 검토하고 전체 pytest·coverage·Ruff·Bandit·pip-audit·Alembic 명령으로 확인 |
 | Codex CLI | 사람의 Phase 05 최종 검토 후 관리자 pagination과 README 정합성 수정 지원 | 검증된 목록별 filter 보존 URL, Transfer URL map introspection, migration·route·검증 문서 보완 | 사람이 diff와 여섯 목록 URL parsing 테스트, Flask URL map, 전체 pytest·coverage·품질·보안·migration 명령의 실제 결과를 대조 |
+| Codex CLI | Phase 06 과제용 가상 포인트 송금·최종 통합 구현 및 테스트 지원 | Wallet form/route/DTO, current-password와 recipient 검증, sender-bound idempotency, 조건부 debit·원자 transaction·동시성 방어, 여섯 번째 migration, CI와 최종 문서 통합 | 사람이 실제 DB balance·Transfer ledger·AuditLog, HTTP status/header/body, file SQLite 독립 session concurrency, migration schema와 GitHub Actions diff를 직접 검토하고 전체 검증 명령으로 확인 |
+| Codex CLI | Phase 06 사람 최종 검토 후 CI tag checkout·idempotency retry·SQLite filesystem hardening 수정 지원 | full-history와 Phase tag 검증, 불확실한 commit 뒤 원 token 재시도, POSIX instance/DB descriptor mode와 회귀 테스트·문서 정합성 보완 | 실제 commit 후 exception DB 상태·HTTP hidden/visible/log redaction, filesystem mode·symlink, workflow source와 전체 596개 pytest·app coverage를 대조 |
 
 ## 원칙
 
@@ -25,4 +27,7 @@
   실제 disconnect 상태를 함께 검토한다.
 - Phase 05는 HTML 결과만 보지 않고 신고·대상·version·AuditLog DB 상태, HTTP 권한/CSRF,
   registry 제거와 Socket server disconnect 호출, CLI 생성 원자성을 함께 검토한다.
+- Phase 06은 성공 응답만 보지 않고 sender/recipient 실제 DB balance, Transfer와 AuditLog row,
+  총 Wallet 합, 순차·동시 idempotency 결과, 실제 file SQLite 독립 session 경쟁과 CI 명령
+  구성을 함께 검토한다.
 - prompt나 산출물에 실제 비밀번호, Secret Key, token, session 값을 포함하지 않는다.

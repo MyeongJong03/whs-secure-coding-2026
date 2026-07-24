@@ -10,6 +10,8 @@ from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
+from app.filesystem import secure_sqlite_database_file
+
 db = SQLAlchemy()
 migrate = Migrate()
 login_manager = LoginManager()
@@ -33,5 +35,19 @@ limiter = Limiter(key_func=get_remote_address)
 def enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
     if isinstance(dbapi_connection, sqlite3.Connection):
         cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+        main_database_path = None
+        try:
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.execute("PRAGMA database_list")
+            main_database_path = next(
+                (
+                    database_path
+                    for _sequence, name, database_path in cursor.fetchall()
+                    if name == "main"
+                ),
+                None,
+            )
+        finally:
+            cursor.close()
+        secure_sqlite_database_file(main_database_path)

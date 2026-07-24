@@ -1,87 +1,107 @@
 # Secure Market
 
-교육용 중고 거래 애플리케이션을 안전한 SDLC 절차로 재구성하는 프로젝트다. Phase 04
-채팅 기능은 `phase-04-chat` 태그로 보존되어 있고, 현재 브랜치는 Phase 05 신고·자동
-제재·관리자 기능을 구현한다. Phase 06 송금 mutation은 남아 있어 전체 과제는 아직
-완료되지 않았다.
+교육용 중고거래 애플리케이션을 안전한 SDLC 절차로 재구성한 프로젝트다. Phase 01~05의
+인증·사용자·상품·검색·채팅·신고·자동 제재·관리자 기능을 유지하면서 Phase 06의 사용자 간
+가상 포인트 송금과 최종 보안 통합을 구현했다.
 
-## 기준선
+- Public repository: <https://github.com/MyeongJong03/whs-secure-coding-2026>
+- Default branch: `main`
+- 최종 구현 작업 branch: `phase/06-wallet-final`
+- 최종 검증 후 사용할 보존 tag: `phase-06-wallet-final`
 
-- 강사 스타터: `f0dd4baac057f62315bb4850f05d18b7e60eb4be`
-- 강사 코드 태그: `course-starter-f0dd4ba`
-- Phase 01 태그: `phase-01-foundation`
-- Phase 02 태그: `phase-02-auth-users`
-- Phase 03 태그: `phase-03-products-search`
-- Phase 04 태그: `phase-04-chat`
+## 강사 제공 기준선
 
-## 현재 구현 상태
+- Course starter repository: <https://github.com/ugonfor/secure-coding>
+- Baseline commit: `f0dd4baac057f62315bb4850f05d18b7e60eb4be`
+- 보존 tag: `course-starter-f0dd4ba`
 
-Phase 01~04의 인증·사용자·상품·이미지·검색·채팅 회귀를 유지한다. Phase 05에서는 다음
-기능을 추가했다.
+이 프로젝트는 위 강사 제공 기준선에서 보안 요구사항과 구현을 재설계했다.
 
-- 사용자·상품 신고와 10~500자/UTF-8 2000-byte 신고 사유 검증
-- 신고자·URL 대상·대상 유형의 서버 결정, 자기 대상과 UNIQUE 중복 방지
-- `pending`/`confirmed`의 서로 다른 신고자 3명에 의한 상품 hidden·일반 사용자 dormant
-- admin 계정 자동 dormant 제외와 관리자 수동 신고 검토·복구
-- CLI-only admin 생성, active admin RBAC, CSRF와 현재 비밀번호 재확인
-- 관리자 사용자·상품·신고·채팅 메시지 관리와 Transfer 읽기 전용 조회
-- 상태 변경·자동 제재와 같은 transaction의 allowlisted 관리자 감사 로그
-- 사용자 active↔dormant 전이의 `auth_version` 증가와 commit 후 Socket 즉시 종료
-- column projection과 frozen/slots DTO 기반 관리자·신고 화면 데이터 최소화
+## 구현 기능
 
-메시지 hide는 새로고침과 향후 history 조회에 적용되며 이미 browser DOM에 전달된 과거
-메시지를 원격 삭제하지 않는다. admin 대상 신고는 저장하지만 3건만으로 자동 dormant하지
-않고 다른 관리자가 수동 검토한다.
+- 안전한 회원가입·로그인·로그아웃·비밀번호 변경과 dormant 세션 무효화
+- 사용자·상품 검색, 안전한 이미지 업로드, 상품 소유권·상태 관리
+- 전체·1대1 실시간 채팅, 참여자 권한, 서버 결정 sender/room과 rate limit
+- 사용자·상품 신고, 서로 다른 신고자 3명 threshold 자동 제재
+- CLI-only admin 생성, 관리자 재인증·상태 조치·감사 로그
+- 사용자·관리자 간 과제용 가상 포인트 송금, 이력·상세와 관리자 읽기 전용 조회
+- Alembic revision 6개, 90% app coverage gate와 GitHub Actions CI
 
-아직 구현하지 않은 기능:
+본 프로젝트의 포인트는 과제용 가상 포인트다. 실제 금융 자산, 현금 또는 결제 수단이
+아니며 은행·카드·결제·환전·충전·출금·환불 기능은 제공하지 않는다.
 
-- Phase 06: 가상 포인트 송금과 최종 통합
+## Wallet·Transfer 보안 정책
 
-가상 포인트는 과제용 정수이며 실제 금융 자산이나 결제 수단이 아니다.
+회원가입과 `create-admin` CLI는 User와 초기 `Wallet(balance=100000)`을 같은 transaction에
+생성한다. active 일반 사용자와 active admin만 다른 active 사용자에게 송금할 수 있다.
+송신자는 항상 현재 인증 사용자이고 수신자는 strip한 username으로 서버가 조회한다.
+client가 제출한 sender ID, recipient ID, balance 또는 DB idempotency key는 사용하지 않는다.
+자기 송금과 dormant·없는 사용자·Wallet, 1 미만 또는 1,000,000,000 초과 금액, 소수·bool,
+잔액 초과를 거부하며 현재 비밀번호를 strip하지 않고 다시 확인한다.
 
-## 관리자 계정 생성
+`GET /wallet/transfer`는 `secrets.token_urlsafe(32)`의 43자 URL-safe token을 hidden
+input으로만 전달한다. DB에는 raw token 대신 다음 sender-bound SHA-256 key만 저장한다.
 
-기본 admin 계정이나 source 내 기본 자격 증명은 없다. 일반 가입·form·URL로 role을 바꿀
-수 없고, 저장소 `.venv`에서 다음 CLI만 사용한다. 비밀번호는 12~128자를 숨김 prompt와
-확인 prompt로 입력하며 CLI argument나 환경변수로 받지 않는다.
-
-```bash
-.venv/bin/flask --app run.py create-admin --username ADMIN_USERNAME
+```text
+sha256(sender_user_id + ":" + raw_token).hexdigest()
 ```
 
-생성 시 `role=admin`, `status=active`, `auth_version=1`, scrypt hash, Wallet 100000과
-`admin.account_created` 감사 로그를 하나의 transaction으로 저장한다. `/admin` 아래
-mutation은 CSRF와 현재 관리자 비밀번호 재확인을 요구하며 role 변경 UI는 제공하지 않는다.
-자기 계정 dormant와 마지막 active admin 제거를 차단한다.
+raw token은 송금 form의 hidden input 외 visible text·flash·로그·감사 로그에 노출하지 않고,
+derived key도 화면·DTO·감사 로그에 표시하지 않는다. 같은 key와 같은 recipient/amount는
+기존 Transfer를 반환하며 차감·증가·원장·감사를 반복하지 않는다. 다른 payload 재사용은
+conflict다.
 
-신고 또는 관리자가 사용자를 dormant/active로 전환할 때 실제 상태 전이마다
-`auth_version`을 증가시키고 commit 성공 뒤 해당 사용자의 `/chat` Socket을 모두 종료한다.
-active 복구 뒤에도 과거 HTTP cookie·CSRF 기반 Socket 연결은 다시 유효해지지 않으며 새
-로그인이 필요하다.
+신규 송금은 다음을 하나의 DB transaction으로 처리한다.
 
-## 상품 이미지 정책
+1. Transfer row를 추가하고 flush해 idempotency key를 예약한다.
+2. `UPDATE wallets ... WHERE user_id = sender_id AND balance >= amount` 조건부 debit의
+   `rowcount == 1`을 확인한다.
+3. active recipient Wallet을 조건부 credit하고 `rowcount == 1`을 확인한다.
+4. `transfer.created` AuditLog에 `amount`만 기록한다.
+5. 모든 단계가 성공한 뒤 한 번만 commit한다.
 
-전체 HTTP 요청은 기존 5 MiB, 이미지 입력과 재인코딩 결과는 각각 4 MiB로 제한한다.
-가로·세로는 각각 4096px, 총 pixel은 16,000,000 이하만 허용한다. 확장자는 UX나 신뢰
-기준이 아니며 Pillow가 확인한 실제 JPEG, PNG, WebP format과 일치해야 한다. GIF, SVG,
-BMP, TIFF, ICO, animation, 손상·truncated 파일, polyglot 뒤쪽 payload와 metadata는
-저장하지 않는다.
+commit 전 credit·audit·DB 오류는 잔액, Transfer와 AuditLog를 전부 rollback한다. commit을
+실행한 뒤 예외가 발생하면 반영 여부를 단정할 수 없으므로 `DATABASE_ERROR` 응답의 유효한
+원 token을 hidden input에 유지한다. 사용자는 같은 token과 payload로 재시도하고, 이미
+반영됐다면 기존 Transfer를 `IDEMPOTENT`로 확인한다. 다른 payload는 conflict다. file-based
+SQLite의 독립 thread/session concurrency 테스트는 잔액 100에서 80+80 과다 인출과 같은
+token 동시 재전송을 검증하며 Wallet 총합을 확인한다.
 
-기본 저장 위치는 `instance/uploads/products`다. 디렉터리는 `0700`, 파일은 `0600`이고
-`app/static` 아래에 업로드를 두지 않는다. 원본 파일명은 저장명, DB, HTML, 응답 header나
-로그에 기록하지 않는다. 저장명은 32자리 소문자 hex와 정규화 확장자다. 이미지 route는
-DB filename도 재검증한다. configured upload root는 `resolve()`로 symlink를 따라가지 않고
-`lstat` 결과와 직접 연 directory descriptor의 `fstat` inode identity를 비교한다. 생성·읽기·
-삭제는 이 descriptor에 대한 상대 filename과 가능한 `O_NOFOLLOW`만 사용한다. 읽을 때는
-regular-file·byte·실제 format뿐 아니라 현재 설정의 가로·세로·총 pixel 제한도 다시 검사한다.
+완료된 Transfer를 수정·삭제하는 사용자 또는 관리자 HTTP route는 없다. 사용자 이력은
+participant 조건과 fixed 20 SQL pagination, sender/recipient alias projection,
+`created_at, id` 안정 정렬을 사용한다. 상세는 sender 또는 recipient 조건을 같은 query에
+넣어 제3자와 없는 ID를 동일한 404로 처리한다. Wallet template에는 frozen/slots DTO만
+전달하며 ORM Wallet, 내부 user ID, password hash와 idempotency key를 전달하지 않는다.
 
-Crash 시 DB commit 전에 저장됐지만 cleanup 전에 프로세스가 종료되어 생길 수 있는 고아
-파일은 후속 유지보수 작업 대상이며, 현재 Phase에서 자동 삭제 사건이 있었다고 가정하지
-않는다.
+모든 Wallet 응답은 `Cache-Control: no-store, private`이다. Wallet GET은 IP당 60/minute,
+송금 POST는 인증 사용자당 3/minute와 10/hour이고 CSRF를 요구한다. 성공과 동일 요청 재시도는
+Transfer 상세로 303 redirect한다.
+
+## 주요 HTTP route
+
+| Method | 경로 | 접근·기능 |
+|---|---|---|
+| GET | `/products` | 공개 상품 검색·목록 |
+| GET/POST | `/products/new` | 인증 사용자 상품 등록 |
+| GET | `/chat` | 인증 사용자 전체 채팅 |
+| GET | `/chat/direct` | 인증 사용자 1대1 대화 |
+| GET/POST | `/reports/users/<username>/new` | 사용자 신고 |
+| GET/POST | `/reports/products/<uuid>/new` | 상품 신고 |
+| GET | `/wallet` | 현재 잔액과 본인 송금 이력 |
+| GET | `/wallet/transfer` | 서버 생성 token을 포함한 송금 form |
+| POST | `/wallet/transfer` | CSRF·현재 비밀번호가 필요한 원자 송금 |
+| GET | `/wallet/transfers/<uuid>` | 송신자·수신자 전용 상세 |
+| GET | `/admin` | active admin 대시보드 |
+| GET | `/admin/transfers` | 실제 Transfer 읽기 전용 조회 |
+| GET | `/admin/audit-logs` | allowlist 감사 로그 조회 |
+
+관리자 user/product/report/message mutation은 기존과 같이 POST·CSRF·현재 관리자 비밀번호를
+요구한다. `/admin/transfers`에는 mutation route가 없고 idempotency key와 내부 user ID를
+조회·출력하지 않는다.
 
 ## 설정과 실행
 
-시스템·전역 환경 대신 저장소의 `.venv`만 사용한다.
+시스템 Python이나 전역 환경 대신 저장소의 `.venv`만 사용한다.
 
 ```bash
 python3 -m venv .venv
@@ -91,104 +111,75 @@ python3 -m venv .venv
 .venv/bin/python run.py
 ```
 
-bootstrap script는 `.env.example`의 placeholder 한 곳을 새로운 무작위 Secret Key로
-교체해 mode `0600`인 `.env`를 만든다. Secret Key 값은 화면에 출력하지 않으며 기존 `.env`가
-있으면 덮어쓰지 않고 실패한다. 성공한 실행 뒤 `http://127.0.0.1:5000`에 접속한다.
+실행 뒤 <http://127.0.0.1:5000>에 접속한다. 애플리케이션 실행과 migration 적용에는 Git
+metadata가 필요하지 않다. 다만 전체 test suite의 migration 불변 테스트는 Phase 01~05
+tag를 `git show`로 읽으므로 일반 `git clone` 또는 tag를 포함한 checkout이 필요하다.
+GitHub Download ZIP에는 `.git`과 tag가 없어 해당 불변 테스트를 실행할 수 없다.
 
-Development·Production의 `SECRET_KEY`는 32자 이상 무작위 값이어야 한다. 상품의 기본
-`PRODUCT_UPLOAD_DIR`, `PRODUCT_MAX_FILE_BYTES`, `PRODUCT_MAX_DIMENSION`,
-`PRODUCT_MAX_PIXELS` 값은 `app/config.py`에 있다. 현재 구현은 `PRODUCT_*`를 환경변수에서
-자동으로 읽지 않는다. custom 값은 `create_app(..., test_config={...})` 또는 애플리케이션
-초기화 시 명시적인 Flask config로 주입할 수 있으며 테스트는 독립 tmp upload root를
-사용한다. `.env`, `instance`, DB와 upload 파일은 Git에서 제외한다.
+`scripts/bootstrap_env.py`는 `.env.example`의 placeholder를 새로운 무작위 Secret Key로
+교체해 mode `0600`의 `.env`를 만들며 기존 파일은 덮어쓰지 않는다. Development·Production의
+`SECRET_KEY`는 환경에서 제공한 32자 이상 무작위 문자열이어야 한다. `.env`, `.venv`,
+`instance`, SQLite DB와 upload 파일은 Git 추적 대상이 아니다.
 
-채팅의 history/conversation page 크기, message 문자·byte, burst/hour/join, 연결 cap과
-socket 최대 나이는 `CHAT_*` Flask config로 정의한다. 테스트는 낮은 limit과 monotonic clock을
-주입하며 CSRF를 비활성화하지 않는다. 메모리 registry와 event limiter는 단일 process
-범위이므로 다중 process 배포에서는 외부 shared store와 process 간 disconnect 전달 계층이
-필요하다.
+Phase 06 기본 설정은 `app/config.py`에 있다.
 
-## migration
+```text
+TRANSFER_MIN_AMOUNT=1
+TRANSFER_MAX_AMOUNT=1000000000
+TRANSFER_HISTORY_PER_PAGE=20
+TRANSFER_PAGE_MAX=1000
+TRANSFER_IDEMPOTENCY_TOKEN_BYTES=32
+```
 
-- `09357cac1cb7`: 안전한 기반 모델
-- `57c21fbc6f83`: 사용자 `auth_version`
-- `c3d57de11bfa`: `ck_products_price_range`, `uq_products_image_filename`,
-  공개/판매자/가격 named index
-- `a91f4c8d2e70`: chat `is_hidden` boolean CHECK와 message/direct history용 named index 4개
-- `e5b7a2c9d4f1`: Product `moderation_previous_status`, Report reviewer metadata와
-  review consistency CHECK, report target/reporter index, AuditLog 길이 CHECK와 조회 index
+SQLite 연결은 `foreign_keys=ON`과 `busy_timeout=5000ms`를 적용하며 WAL mode를 강제하지
+않는다. Ubuntu/WSL과 GitHub Ubuntu 같은 POSIX 환경에서는 Flask instance directory를
+symlink가 아닌 실제 directory로 확인한 뒤 descriptor로 `0700`, file-backed SQLite main
+DB를 regular file로 확인한 뒤 가능한 `O_NOFOLLOW`·`O_CLOEXEC` descriptor로 `0600`을
+적용한다. symlink·non-directory/non-regular target과 chmod 실패는 fail closed한다.
+in-memory SQLite에는 file mode를 적용하지 않으며, non-POSIX에서는 이 POSIX mode 보장을
+주장하지 않는다. process-wide umask는 변경하지 않는다.
 
-Phase 05에서는 기존 네 migration을 변경하지 않고 다섯 번째 migration만 추가했다.
-`e5b7a2c9d4f1` downgrade는 이 revision이 추가한 moderation/reviewer metadata, CHECK와
-조회 index만 제거한다.
+## 관리자 생성
 
-## route
+기본 admin 또는 source 내 기본 자격 증명은 없다. admin은 숨김 password·confirmation
+prompt를 사용하는 CLI로만 생성한다.
 
-| Method | 경로 | 접근 |
-|---|---|---|
-| GET | `/products` | 공개 목록·검색 |
-| GET | `/products/<uuid>` | 공개 active/sold 상세 |
-| GET | `/products/<uuid>/image` | 공개 상품 또는 비공개 상품 소유자 |
-| GET/POST | `/products/new` | 인증 사용자 상품 등록 |
-| GET | `/me/products` | 본인 모든 상태 상품 |
-| GET/POST | `/me/products/<uuid>/edit` | 본인 active/sold 수정 |
-| POST | `/me/products/<uuid>/status` | 본인 active/sold 전이 |
-| POST | `/me/products/<uuid>/delete` | 본인 상품 soft delete |
-| GET | `/chat` | 인증 사용자의 전체 history; page 1만 live |
-| GET | `/chat/direct` | 본인 1대1 대화 목록과 시작 form |
-| POST | `/chat/direct/start` | username으로 active 상대 대화 생성·재사용 |
-| GET | `/chat/direct/<uuid>` | 두 참여자만 history; page 1만 live |
-| GET/POST | `/reports/users/<username>/new` | 인증 사용자의 사용자 신고 |
-| GET/POST | `/reports/products/<uuid>/new` | 인증 사용자의 상품 신고 |
-| GET | `/me/reports` | 본인 신고 목록 |
-| GET | `/admin` | active admin 대시보드 |
-| GET | `/admin/users` | 관리자 사용자 목록 |
-| GET | `/admin/users/<username>` | 관리자 사용자 상세 |
-| POST | `/admin/users/<username>/status` | 사용자 active/dormant 전이 |
-| GET | `/admin/products` | 관리자 상품 목록 |
-| GET | `/admin/products/<uuid>` | 관리자 상품 상세 |
-| POST | `/admin/products/<uuid>/status` | 상품 숨김·복구·삭제 |
-| GET | `/admin/reports` | 관리자 신고 목록 |
-| GET | `/admin/reports/<uuid>` | 관리자 신고 상세 |
-| POST | `/admin/reports/<uuid>/decision` | 신고 확인·기각 |
-| GET | `/admin/messages` | 관리자 채팅 메시지 목록 |
-| POST | `/admin/messages/<uuid>/visibility` | 메시지 숨김·표시 |
-| GET | `/admin/transfers` | 관리자 Transfer 읽기 전용 목록 |
-| GET | `/admin/audit-logs` | 관리자 감사 로그 목록 |
+```bash
+.venv/bin/flask --app run.py create-admin --username ADMIN_USERNAME
+```
 
-모든 HTTP POST는 CSRF와 인증을 요구하고 성공 시 303을 반환한다. 채팅 HTTP 화면은
-`no-store, private`다. 목록·검색은 IP당 60/minute, 상세·이미지는 120/minute, 생성은
-사용자당 10/hour, 수정·상태·삭제는 endpoint별 30/hour다.
+생성 시 active admin, scrypt password hash, Wallet 100000과 `admin.account_created`
+AuditLog를 하나의 transaction으로 저장한다. 관리자도 balance를 임의로 수정할 수 없다.
 
-Phase 05의 `/admin/transfers`는 GET-only이며 실제 송금 mutation은 Phase 06 범위다.
-관리자 mutation은 CSRF와 현재 관리자 비밀번호 재확인을 모두 요구한다. admin 생성은
-`create-admin` CLI로만 가능하며 전체 과제는 Phase 06이 남아 있어 아직 완료되지 않았다.
+## Migration
 
-Socket.IO namespace는 `/chat`이다.
+1. `09357cac1cb7`: 안전한 기반 모델
+2. `57c21fbc6f83`: 사용자 `auth_version`
+3. `c3d57de11bfa`: 상품 constraint·index
+4. `a91f4c8d2e70`: 채팅 constraint·index
+5. `e5b7a2c9d4f1`: 신고·관리자·감사 metadata와 index
+6. `f8c2d1e7a6b4`: `ck_transfers_amount_range`,
+   `ck_transfers_idempotency_key_format`, sender/recipient history index
 
-| Inbound event | 서버 처리 |
-|---|---|
-| `chat:join_global` | payload 없음/빈 객체만 허용하고 server global room join |
-| `chat:join_direct` | canonical conversation UUID와 참여자 권한 확인 후 server room join |
-| `chat:send_global` | joined global room, message 검증·저장 후 global room broadcast |
-| `chat:send_direct` | joined direct room, 참여자·상대 active 재확인 후 해당 room broadcast |
+여섯 번째 revision만 Phase 06에서 추가했다. 기존 5개 migration은
+`phase-05-moderation-admin` 태그와 byte 단위로 동일하다. downgrade는 두 history index와
+새 CHECK를 제거하고 기존 `ck_transfers_amount_positive`를 복구한다.
 
-outbound는 `chat:message`이며 sender username/body/server timestamp만 포함한다. client의
-username, user ID, sender ID, auth version이나 room name은 받거나 신뢰하지 않는다.
+## CI와 로컬 검증
 
-## Local Socket.IO client
+`.github/workflows/ci.yml`은 `push`와 `pull_request`에서 `actions/checkout@v4`의
+`fetch-depth: 0`, `persist-credentials: false`로 전체 history와 tag를 가져온다. checkout
+직후 Phase 01~05 보존 tag를 `git show-ref`로 확인하고 하나라도 없으면 실패한다. 이어서
+Python 3.12를 사용한다. workflow가 임시 무작위 `SECRET_KEY`와 runner 임시 SQLite 경로를
+만들기 때문에 repository secret이나 `.env`가 필요하지 않다. pytest와 app coverage 90%
+gate, Ruff check/format, Bandit, runtime/dev pip-audit, pip check, compileall, 빈 DB migration
+upgrade와 drift check는 모두 필수 단계이며 `continue-on-error`를 사용하지 않는다.
 
-브라우저 bundle은 `app/static/vendor/socket.io-4.8.3.min.js`에서 self-host한다. 공식
-`https://cdn.socket.io/4.8.3/socket.io.min.js`를 한 번 취득해 SHA-384 base64
-`kzavj5fiMwLKzzD1f8S7TeoVIEi7uKHvbTA3ueZkrzYq75pNQUiUi6Dy98Q3fxb0`와 일치한 byte만 저장했다.
-template의 local URL에 동일한 SRI를 적용하고 runtime CDN은 사용하지 않는다. 라이선스와
-취득 정보는 `THIRD_PARTY_NOTICES.md`에 있다.
-
-## 검증
+로컬 최종 검증 명령:
 
 ```bash
 .venv/bin/python -m pytest
-.venv/bin/python -m pytest --cov=app --cov-report=term-missing
+.venv/bin/python -m pytest --cov=app --cov-report=term-missing --cov-fail-under=90
 .venv/bin/ruff check .
 .venv/bin/ruff format --check .
 .venv/bin/bandit -q -r app scripts run.py
@@ -197,34 +188,41 @@ PIP_NO_CACHE_DIR=1 .venv/bin/pip-audit -r requirements-dev.txt
 .venv/bin/python -m pip check
 .venv/bin/python -m compileall -q app scripts tests run.py
 git diff --check
-git status --short
 ```
 
-2026-07-24 최종 자동 테스트는 518개가 통과했고 `app` coverage는 96%다.
-coverage는 현재 `app` 코드 범위이며 미구현 Phase 06을 포함한 전체 과제 coverage가
-아니다. pytest는 CSRF와 rate limit을 비활성화하지 않고 외부 네트워크에 의존하지 않는다.
+Phase 06 최종 로컬 자동 테스트는 기존 518개 회귀를 유지한 총 596개다. 전체 pytest와
+coverage 실행에서 모두 통과했고 현재 `app` coverage는 95%(`95.26%`)로 90% gate를
+통과했다. coverage는 현재 `app` 코드 범위다. 실제 GitHub Actions runner 성공 화면은
+사람이 push/PR 뒤 확인·캡처한다.
 
 ## 구조
 
 ```text
-app/auth/                 인증 form, route, service
-app/users/                사용자 form, route, service
-app/products/             상품 form, route, service, image, policy
-app/chat/                 HTTP route, Socket event, service, registry, limiter, DTO
-app/moderation/           신고 form, policy, transaction service, route, DTO
-app/admin/                관리자 RBAC, form, projection query, mutation service, route, DTO
-app/audit/                action/details allowlist와 감사 생성 service
-app/cli.py                interactive CLI-only admin 생성
-app/templates/chat/       전체·1대1 history와 local client 화면
-app/static/js/chat.js     textContent 기반 실시간 browser 동작
-app/static/vendor/        검증·고정된 Socket.IO browser client
-app/templates/products/   공개·소유자 상품 화면
-app/models/               SQLAlchemy 모델과 DB 제약
-migrations/versions/      다섯 개의 순차 Alembic revision
-scripts/bootstrap_env.py   기존 파일을 덮어쓰지 않는 로컬 환경 bootstrap
-tests/                    기존 회귀와 HTTP·DB·Socket·room·static integrity
-docs/                     요구사항, 설계, 위협, Finding, 테스트와 증거 계획
+app/auth/                 인증 form·route·service
+app/users/                사용자 조회·수정
+app/products/             상품 form·route·service·안전한 image 처리
+app/chat/                 HTTP·Socket route, service, registry, limiter, DTO
+app/moderation/           신고 form·policy·transaction·DTO
+app/admin/                RBAC·projection query·관리 mutation·DTO
+app/audit/                action/details allowlist와 감사 생성
+app/wallet/               송금 form·policy·route·transaction·history·DTO
+app/templates/wallet/     지갑·송금 form·송금 상세
+migrations/versions/      6개의 순차 Alembic revision
+.github/workflows/ci.yml  Python 3.12 필수 CI
+tests/                    HTTP·DB·rollback·idempotency·concurrency·회귀
+docs/                     요구사항·설계·위협·Finding·test/evidence/manual 계획
 ```
 
-외부 runtime CDN, inline script/style, Jinja `safe`/Markup을 사용하지 않는다. 실제 가상
-포인트 송금 route·service·form은 Phase 06 미구현 범위다.
+## 잔여 범위와 한계
+
+- 영구 cloud 배포, 실제 HTTPS/WSS 종료와 운영 관측은 범위 밖이며 사람이 별도 검증한다.
+- Flask-Limiter memory backend와 채팅 registry는 단일 process 범위다. 다중 process 운영은
+  공유 rate-limit 저장소와 Socket disconnect 전달 계층이 필요하다.
+- SQLite는 높은 write concurrency에서 직렬화·lock 지연 한계가 있다. 현재 구현은
+  `busy_timeout`, 짧은 transaction, 조건부 debit과 실제 file DB concurrency 테스트로
+  과제 범위를 방어하지만 고처리량 운영은 별도 DB·재시도·관측 설계가 필요하다.
+- AuditLog는 application DB transaction과 원자적이지만 외부 append-only/WORM 감사 저장소는
+  아니다.
+- 실제 브라우저 사용성·화면 캡처·GitHub Actions 성공 확인과 유지보수 사례 확정은
+  `docs/MANUAL_TEST_PLAN.md`·`docs/EVIDENCE.md`에 `NOT RUN` 계획으로 남아 있다.
+  실행하지 않은 유지보수 결과는 `docs/MAINTENANCE_LOG.md`에 만들지 않았다.

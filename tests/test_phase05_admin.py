@@ -513,7 +513,7 @@ def test_admin_transfer_list_is_read_only_and_redacted(
             sender_id=sender.id,
             recipient_id=recipient.id,
             amount=4321,
-            idempotency_key="private-idempotency-value",
+            idempotency_key="a" * 64,
         )
         db.session.add(transfer)
         db.session.commit()
@@ -523,26 +523,35 @@ def test_admin_transfer_list_is_read_only_and_redacted(
     assert response.status_code == 200
     assert transfer_id in html
     assert "sender" in html and "recipient" in html and "4321" in html
-    assert "private-idempotency-value" not in html
+    assert "a" * 64 not in html
     assert sender.id not in html and recipient.id not in html
 
 
-def test_transfer_url_map_is_get_only_and_has_no_phase06_mutation(app):
+def test_transfer_url_map_has_only_user_create_and_read_only_admin(app):
     rules = tuple(app.url_map.iter_rules())
     admin_transfer_rules = [rule for rule in rules if rule.rule == "/admin/transfers"]
     assert len(admin_transfer_rules) == 1
     assert admin_transfer_rules[0].methods == {"GET", "HEAD", "OPTIONS"}
-    assert not [
+    transfer_posts = [
         rule
         for rule in rules
         if "transfer" in rule.rule.lower() and "POST" in rule.methods
+    ]
+    assert [(rule.rule, rule.endpoint) for rule in transfer_posts] == [
+        ("/wallet/transfer", "wallet.transfer_submit")
     ]
     mutation_methods = {"POST", "PUT", "PATCH", "DELETE"}
     assert not [
         rule
         for rule in rules
-        if mutation_methods.intersection(rule.methods)
+        if {"PUT", "PATCH", "DELETE"}.intersection(rule.methods)
         and any(name in rule.rule.lower() for name in ("transfer", "wallet"))
+    ]
+    assert not [
+        rule
+        for rule in rules
+        if mutation_methods.intersection(rule.methods)
+        and rule.rule.startswith("/admin/transfers")
     ]
 
 

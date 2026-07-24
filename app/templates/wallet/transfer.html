@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}가상 포인트 송금 - Secure Market{% endblock %}
+{% block content %}
+  <h1>가상 포인트 송금</h1>
+  <p class="notice">
+    본 포인트는 과제용 가상 포인트입니다. 실제 금융 자산, 현금 또는 결제 수단이 아닙니다.
+  </p>
+  <p>송금 대상과 금액을 확인하고 현재 비밀번호를 다시 입력해 주세요.</p>
+  <form method="post" action="{{ url_for('wallet.transfer_submit') }}">
+    {{ form.csrf_token }}
+    {{ form.idempotency_token }}
+    <div class="form-field">
+      {{ form.recipient_username.label }}
+      {{ form.recipient_username(autocomplete="username") }}
+      {% for error in form.recipient_username.errors %}
+        <p class="field-error">{{ error }}</p>
+      {% endfor %}
+    </div>
+    <div class="form-field">
+      {{ form.amount.label }}
+      {{ form.amount(min=1, max=1000000000, step=1) }}
+      {% for error in form.amount.errors %}
+        <p class="field-error">{{ error }}</p>
+      {% endfor %}
+    </div>
+    <div class="form-field">
+      {{ form.current_password.label }}
+      {{ form.current_password(autocomplete="current-password") }}
+      {% for error in form.current_password.errors %}
+        <p class="field-error">{{ error }}</p>
+      {% endfor %}
+    </div>
+    {{ form.submit }}
+  </form>
+  <p><a href="{{ url_for('wallet.index') }}">지갑으로 돌아가기</a></p>
+{% endblock %}

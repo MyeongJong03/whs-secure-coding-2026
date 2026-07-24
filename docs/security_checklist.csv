@@ -50,8 +50,8 @@ Section,Checklist Item,Description,Requirement,Phase,Verification,Status
 실시간 채팅 및 메시징,Message transaction,sender/scope/body를 한 commit 후 해당 room emit하고 실패 rollback·미broadcast,FR-403/SR-020,Phase 04,global/direct 정상 DB와 commit failure room 테스트,VERIFIED
 안전 거래 및 신고,신고 입력 및 대상 권한,server target type·존재·상태·자기 대상·소유권·사유 검증,SR-004/SR-005,Phase 05,route/service 정상·실패·spoof 테스트,VERIFIED
 안전 거래 및 신고,중복·자동 제재·복구,UNIQUE race와 서로 다른 유효 신고자 3명 집계 및 관리자 원자 복구,FR-505/FR-506/FR-507/FR-508,Phase 05,중복/race/rejected/threshold/복구/rollback 테스트,VERIFIED
-송금,양수·자기·잔액 방어,서버 검증과 DB CHECK,FR-604/FR-605/FR-606,Phase 06,DB 제약만 기존 검증·service 테스트 예정,PARTIAL
-송금,원자성·멱등성,차감 증가 원장 단일 transaction과 idempotency 재사용,SR-013/FR-608,Phase 06,DB UNIQUE만 기존 검증·경쟁/rollback 예정,PARTIAL
+송금,양수·자기·잔액 방어,"bool 제외 amount 1~1000000000, self 금지, active sender/recipient와 Wallet을 service에서 재검증",FR-604/FR-605/FR-606,Phase 06,form/service/직접 DB 경계와 balance 불변 자동 테스트,VERIFIED
+송금,원자성·멱등성,Transfer 예약·조건부 debit·credit·audit 단일 transaction과 sender-bound idempotency 재사용,SR-013/SR-021/FR-607/FR-608,Phase 06,정상·rollback·순차/동시 중복 자동 테스트,VERIFIED
 전체 시스템,ORM 및 파라미터 바인딩,동적 SQL 결합 금지와 SQLAlchemy ORM 사용,SR-006,Phase 01+,source review와 검색 입력 테스트,PARTIAL
 전체 시스템,DB 무결성,SQLite foreign_keys와 CHECK UNIQUE NOT NULL 적용,SR-010,Phase 01+,PRAGMA·IntegrityError·migration 테스트,PARTIAL
 전체 시스템,보안 헤더,CSP nosniff DENY referrer permissions 정책을 정상·오류 응답에 적용,SR-008,Phase 01+,응답 header 테스트,VERIFIED
@@ -75,4 +75,27 @@ Section,Checklist Item,Description,Requirement,Phase,Verification,Status
 관리자,Message moderation,hide/show와 audit 원자 처리·hidden history 제외·과거 DOM 비삭제 고지,FR-703/SEC-25,Phase 05,hide/show/history/XSS/internal ID 테스트,VERIFIED
 감사,Audit atomicity,관리·자동 제재와 AuditLog 한 transaction이고 audit 실패 전체 rollback,FR-706/SEC-25,Phase 05,user/product/report/message/auto rollback 테스트,VERIFIED
 감사,Audit redaction,actor/action/target와 action별 scalar details만 허용하고 민감 key·reason 복제 거부,FR-706/SEC-25,Phase 05,policy 거부·reason 부재·system actor·autoescape 테스트,VERIFIED
-관리자,Transfer 읽기 전용,명시 projection의 GET-only fixed 50 목록이며 idempotency key와 내부 user ID 제외,FR-705,Phase 05,seeded 조회·redaction·Flask URL map GET-only와 wallet/transfer mutation 부재 테스트,VERIFIED
+관리자,Transfer 읽기 전용,명시 projection의 GET-only fixed 50 목록이며 idempotency key와 내부 user ID 제외,FR-705,Phase 05/06,실제 송금 조회·redaction·URL map GET-only와 admin mutation 부재 자동 테스트,VERIFIED
+송금,과제용 가상 포인트 고지,모든 Wallet 화면과 README에서 실제 금융 자산·현금·결제 수단이 아님을 표시,FR-602,Phase 06,Wallet template·README 정적/HTTP 자동 검증,VERIFIED
+송금,Sender 결정,sender는 current authenticated active user만 사용하고 client sender_id를 무시,FR-603/SR-022/SEC-28,Phase 06,extra sender_id와 dormant old-session DB/HTTP 자동 검증,VERIFIED
+송금,Recipient 결정,strip한 username으로 active User와 Wallet을 server lookup하고 client recipient_id를 무시,FR-603/SR-022/SEC-28,Phase 06,정상·missing·dormant·Wallet 누락·extra recipient_id 자동 검증,VERIFIED
+송금,Self transfer,조회된 sender와 recipient User ID가 같으면 balance·ledger·audit 변경 없이 거부,FR-604/SEC-28,Phase 06,self POST와 직접 service 자동 검증,VERIFIED
+송금,Amount 정책,bool·소수 제외 정수 1~1000000000을 form/service/DB named CHECK에서 강제,FR-605/SEC-08/SEC-10,Phase 06,0·음수·소수·두 경계·상한 초과 자동 검증,VERIFIED
+송금,Balance 검증,현재 잔액 미만/같은 금액만 허용하고 부족하면 전체 상태 불변,FR-606/SEC-26,Phase 06,부족·정상 송금과 Transfer/Audit 상태 자동 검증,VERIFIED
+송금,Conditional debit,"UPDATE wallets ... WHERE user_id=sender AND balance>=amount 뒤 rowcount 1을 요구하고 Python read-modify-write 금지",FR-606/SR-013/SEC-26,Phase 06,실제 DB rowcount와 경쟁 상태 자동 검증,VERIFIED
+송금,단일 transaction,Transfer flush 예약·debit·credit·transfer.created audit를 한 번만 commit하고 모든 실패 rollback,FR-607/SR-013/SEC-25/SEC-26,Phase 06,credit·audit·commit 실패의 실제 balance/row 자동 검증,VERIFIED
+송금,Idempotency token,GET마다 32-byte token_urlsafe의 43자 token을 hidden 전달하고 raw token은 저장·로그·표시하지 않음,FR-608/SR-021/SEC-27,Phase 06,두 GET·형식·hidden·response/log/DB redaction 자동 검증,VERIFIED
+송금,Derived idempotency key,sha256(sender_user_id+":"+raw_token) 64 lowercase hex와 DB UNIQUE로 sender namespace 예약,FR-608/SR-021/SEC-27,Phase 06,derive·DB key·다른 sender namespace 자동 검증,VERIFIED
+송금,Idempotency mismatch,같은 key의 같은 recipient/amount는 기존 결과이고 다른 payload는 conflict와 전체 불변,FR-608/SR-021/SEC-27,Phase 06,순차 같은 payload·다른 amount/recipient 자동 검증,VERIFIED
+송금,Concurrency,"file SQLite 독립 session/thread에서 80+80 overspend와 같은 token race를 막고 ledger/debit/credit 횟수와 총합 보존",FR-607/FR-608/SEC-26/SEC-27,Phase 06,skip 없는 실제 DB concurrency 자동 검증,VERIFIED
+송금,Ledger immutability,완료 Transfer의 사용자·관리자 update/delete HTTP route를 만들지 않고 row를 원장으로 보존,FR-609/SEC-28,Phase 06,Flask URL map method와 mutation route 부재 자동 검증,VERIFIED
+송금,History IDOR,current user sender/recipient만 direction/sort/page allowlist와 fixed 20 SQL projection으로 조회,SR-022/SEC-28,Phase 06,sent·received·all·타인 배제·pagination·SELECT/DTO 자동 검증,VERIFIED
+송금,Detail IDOR,sender 또는 recipient participant query만 허용하고 제3자와 missing을 같은 404 처리,SR-022/SEC-28,Phase 06,두 participant·제3자·missing HTTP 자동 검증,VERIFIED
+송금,Current password,strip하지 않은 최대 128자 current password를 재확인하고 value/hash를 저장·반사하지 않음,SEC-04/SEC-28,Phase 06,정상·wrong·response redaction 자동 검증,VERIFIED
+송금,CSRF,송금 POST는 Flask-WTF CSRF와 인증을 요구하고 성공·idempotent 성공만 303,SR-003/SEC-04,Phase 06,token 누락 400·정상 303·conflict service 자동 검증,VERIFIED
+송금,Rate limit,Wallet GET IP 60/minute와 송금 POST 사용자 shared 3/minute·10/hour,SEC-12,Phase 06,실제 GET/minute/hour threshold 429 자동 검증,VERIFIED
+감사,Transfer audit redaction,transfer.created actor/target와 amount-only details를 원장 transaction에 넣고 recipient·balance·password·token/key 제외,SEC-25/SEC-26,Phase 06,audit rollback·policy·DB/HTML redaction 자동 검증,VERIFIED
+전체 시스템,Phase 06 CI,GitHub Actions Python 3.12에서 pytest·app coverage 90·Ruff·Bandit·pip-audit·pip check·compileall·migration check,NFR-008,Phase 06,workflow 정적 검사와 로컬 명령 통과·실제 Actions 실행은 수동 예정,PARTIAL
+전체 시스템,CI full history와 Phase tag,"actions/checkout@v4 fetch-depth 0·persist-credentials false 뒤 Phase 01~05 tag를 git show-ref로 확인",NFR-008,Phase 06,workflow 정적 검사와 tag 기반 migration 불변 테스트,VERIFIED
+송금,불확실한 DB 결과 token 보존,DATABASE_ERROR에서 유효한 원 token을 hidden 유지하고 같은 payload 재시도는 기존 Transfer를 IDEMPOTENT로 조회,SR-021/SEC-29,Phase 06,실제 commit 후 exception·같은 token 재시도의 원장·audit·balance·redaction 자동 테스트,VERIFIED
+전체 시스템,SQLite instance와 DB 최소 권한,"POSIX instance 0700·file SQLite main DB 0600과 symlink/non-directory/non-regular fail closed",SR-010/SEC-30,Phase 06,실제 mode·in-memory·PRAGMA·symlink·Git tracked artifact 자동 테스트,VERIFIED

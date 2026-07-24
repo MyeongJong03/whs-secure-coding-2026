@@ -2,6 +2,7 @@ from collections.abc import Mapping
 
 
 ACTION_DETAIL_KEYS: dict[str, frozenset[str]] = {
+    "transfer.created": frozenset({"amount"}),
     "report.created": frozenset({"target_type"}),
     "moderation.product.auto_hidden": frozenset(
         {"previous_status", "new_status", "report_count"}
@@ -42,6 +43,8 @@ FORBIDDEN_DETAIL_TERMS = frozenset(
         "sid",
         "reason",
         "token",
+        "balance",
+        "recipient",
     }
 )
 SCALAR_TYPES = (str, int, bool, type(None))

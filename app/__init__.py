@@ -6,6 +6,7 @@ from werkzeug.security import generate_password_hash
 
 from app.config import CONFIGS, validate_secret_key
 from app.extensions import csrf, db, limiter, login_manager, migrate, socketio
+from app.filesystem import secure_instance_directory
 
 
 def create_app(
@@ -37,12 +38,12 @@ def create_app(
         app.config.update(test_config)
     if selected_config != "testing":
         app.config["SECRET_KEY"] = validate_secret_key(app.config.get("SECRET_KEY"))
+    secure_instance_directory(app.instance_path)
     if app.config.get("PRODUCT_UPLOAD_DIR") is None:
         app.config["PRODUCT_UPLOAD_DIR"] = os.path.join(
             app.instance_path, "uploads", "products"
         )
 
-    os.makedirs(app.instance_path, exist_ok=True)
     db.init_app(app)
     migrate.init_app(app, db, compare_type=True, render_as_batch=True)
     login_manager.init_app(app)
@@ -61,6 +62,7 @@ def create_app(
     from app.moderation import bp as moderation_bp
     from app.security import clear_authentication_session
     from app.users import bp as users_bp
+    from app.wallet import bp as wallet_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp)
@@ -69,6 +71,7 @@ def create_app(
     app.register_blueprint(chat_bp)
     app.register_blueprint(moderation_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(wallet_bp)
     register_cli(app)
     init_chat_state(app)
     app.extensions["auth_dummy_hash"] = generate_password_hash(
@@ -109,6 +112,8 @@ def register_security_headers(app: Flask) -> None:
             or request.path.startswith("/reports/")
             or request.path == "/admin"
             or request.path.startswith("/admin/")
+            or request.path == "/wallet"
+            or request.path.startswith("/wallet/")
         ):
             response.headers["Cache-Control"] = "no-store, private"
         response.headers["X-Content-Type-Options"] = "nosniff"

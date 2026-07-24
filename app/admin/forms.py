@@ -160,6 +160,7 @@ class AdminAuditFilterForm(AdminPageForm):
             ("product", "상품"),
             ("report", "신고"),
             ("message", "메시지"),
+            ("transfer", "송금"),
         ),
         default="all",
     )

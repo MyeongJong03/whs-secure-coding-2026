@@ -107,7 +107,7 @@ def test_transfer_rejects_nonpositive_amount(app, amount):
                 sender_id=sender.id,
                 recipient_id=recipient.id,
                 amount=amount,
-                idempotency_key=str(uuid.uuid4()),
+                idempotency_key="a" * 64,
             )
         )
         assert_commit_rejected()
@@ -121,7 +121,7 @@ def test_transfer_rejects_same_sender_and_recipient(app):
                 sender_id=user.id,
                 recipient_id=user.id,
                 amount=1,
-                idempotency_key=str(uuid.uuid4()),
+                idempotency_key="a" * 64,
             )
         )
         assert_commit_rejected()

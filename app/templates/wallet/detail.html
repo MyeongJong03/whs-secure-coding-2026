@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}송금 상세 - Secure Market{% endblock %}
+{% block content %}
+  <h1>송금 상세</h1>
+  <p class="notice">
+    본 포인트는 과제용 가상 포인트입니다. 실제 금융 자산, 현금 또는 결제 수단이 아닙니다.
+  </p>
+  <dl>
+    <dt>방향</dt>
+    <dd>{{ "보낸 송금" if transfer.direction == "sent" else "받은 송금" }}</dd>
+    <dt>송신자</dt>
+    <dd>{{ transfer.sender_username }}</dd>
+    <dt>수신자</dt>
+    <dd>{{ transfer.recipient_username }}</dd>
+    <dt>금액</dt>
+    <dd>{{ transfer.amount }} 포인트</dd>
+    <dt>일시</dt>
+    <dd>{{ transfer.created_at }}</dd>
+  </dl>
+  <p>완료된 송금 원장은 수정하거나 삭제할 수 없습니다.</p>
+  <p><a href="{{ url_for('wallet.index') }}">송금 이력으로 돌아가기</a></p>
+{% endblock %}

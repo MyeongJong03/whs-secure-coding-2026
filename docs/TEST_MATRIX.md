@@ -14,7 +14,9 @@ active/dormant loader, SQLite FK, username·Wallet·Product·Report·Transfer·D
 loader 테스트는 실제 versioned 로그인으로 세션을 만든 뒤 같은 기대 결과를 확인한다.
 Phase 04 추가 전의 기존 307개 Phase 01~03 테스트는 삭제·skip·약화하지 않고 모두 유지한다.
 Phase 05 시작 시점의 전체 408개 테스트도 삭제·skip·약화하지 않고 유지하며 Phase 05
-테스트를 추가한다.
+테스트를 추가했다. Phase 06 시작 시점의 전체 518개 테스트도 삭제·skip·약화하지 않고
+Wallet·Transfer 테스트를 추가한다. concurrency는 실제 file SQLite와 독립 session/thread를
+사용하며 skip하지 않는다.
 
 ## Phase 02 migration·모델
 
@@ -316,7 +318,7 @@ Phase 05 시작 시점의 전체 408개 테스트도 삭제·skip·약화하지 
 | T-P05-REPORT-ADMIN-01 | pending confirm/reject | reviewer/time/status/update와 audit 원자 저장 | PASS |
 | T-P05-REPORT-ADMIN-02 | 결정 재변경·잘못된 decision·missing | 상태 불변 또는 404/400, reason audit 미복제 | PASS |
 | T-P05-MESSAGE-01 | global/direct hide/show | future history 제외/복구, body escape, 내부 ID/room 미노출 | PASS |
-| T-P05-TRANSFER-01 | seeded transfer·검색/정렬·Flask URL map | fixed 50 GET projection, key/user ID 미노출, GET/HEAD/OPTIONS만 존재하고 wallet/transfer mutation 부재 | PASS |
+| T-P05-TRANSFER-01 | seeded transfer·검색/정렬·Flask URL map | fixed 50 관리자 projection, key/user ID 미노출, `/admin/transfers`는 GET/HEAD/OPTIONS만 유지 | PASS |
 | T-P05-AUDIT-01 | actor/system·details XSS | allowlisted projection·autoescape·read-only | PASS |
 | T-P05-AUDIT-02 | unknown/sensitive/nonscalar details | policy 거부 또는 display drop | PASS |
 | T-P05-ADMIN-QUERY-01 | SQLi 형태 q·invalid filter/page/sort | literal 빈 결과 또는 400, SQL 오류 없음 | PASS |
@@ -324,9 +326,86 @@ Phase 05 시작 시점의 전체 408개 테스트도 삭제·skip·약화하지 
 | T-P05-ADMIN-PAGE-01 | 여섯 목록 page 2의 이전/다음과 filter·unknown/per_page·특수문자 q | 목록별 검증된 q/filter/sort만 page 1·3에 보존, unknown/per_page 미전파, URL encoding·HTML escape·same-origin | PASS |
 | T-P05-ADMIN-GET-01 | 네 mutation URL GET | 405 | PASS |
 
-## 최종 자동화 결과
+## Phase 06 migration·token
 
-2026-07-24 최종 검증 기준:
+아래 Phase 06 항목은 실제 전체·targeted 자동 테스트에서 검증했다.
+
+| Test ID | 입력/행동 | 기대 결과 | 상태 |
+|---|---|---|---|
+| T-P06-MIG-01 | revision source·chain·파일 수 | `e5b7a2c9d4f1` 뒤 여섯 번째 revision, migration Python 정확히 6개 | PASS |
+| T-P06-MIG-02 | 보존 태그의 기존 다섯 migration | byte 단위 동일 | PASS |
+| T-P06-MIG-03 | 빈 DB upgrade/check→Phase 05 downgrade→upgrade/check | 두 drift check 성공, 새 CHECK/index만 가역 | PASS |
+| T-P06-MIG-04 | amount 0·음수·1,000,000,001과 경계 1·1,000,000,000 직접 DB 입력 | 범위 밖 거부, 두 경계 허용 | PASS |
+| T-P06-MIG-05 | key 63/65자·대문자·nonhex와 64 lowercase hex | 잘못된 형식 거부, 정확한 형식 허용 | PASS |
+| T-P06-MIG-06 | Transfer schema introspection | sender/recipient named index, distinct-user·unique key·FK 유지 | PASS |
+| T-P06-WALLET-01 | 회원가입·CLI admin 생성 | 각각 Wallet balance 100000을 같은 transaction으로 생성 | PASS |
+| T-P06-TOKEN-01 | 송금 GET 두 번 | 서로 다른 정확한 43자 URL-safe token | PASS |
+| T-P06-TOKEN-02 | 송금 form HTML | token은 hidden input이고 표시 text·flash·일반 로그에 없음 | PASS |
+| T-P06-TOKEN-03 | sender ID와 raw token derive | 64 lowercase hex이며 DB에는 raw token 대신 derived key | PASS |
+| T-P06-TOKEN-04 | missing·42/44자·invalid-char token | form/service 모두 거부, token/password 미반사 | PASS |
+
+## Phase 06 route·transaction·rollback
+
+| Test ID | 입력/행동 | 기대 결과 | 상태 |
+|---|---|---|---|
+| T-P06-ROUTE-01 | anonymous/authenticated `/wallet`·transfer GET | anonymous 차단, authenticated 200와 `no-store, private` | PASS |
+| T-P06-ROUTE-02 | CSRF 없음·정상 송금 POST | 누락 400, 정상 detail로 303 | PASS |
+| T-P06-ROUTE-03 | wrong current password·없는/dormant recipient·self | 일반 오류, balance·row 불변 | PASS |
+| T-P06-ROUTE-04 | amount 0·음수·소수·상한 초과 | 400 또는 form 오류, 원장 없음 | PASS |
+| T-P06-ROUTE-05 | sender_id·recipient_id·balance·idempotency_key extra field | 모두 무시하고 current user·username·server key 사용 | PASS |
+| T-P06-ROUTE-06 | 사용자 4번째/minute와 11번째/hour 송금, Wallet GET 61번째/minute | 각 shared limit에서 429 | PASS |
+| T-P06-ROUTE-07 | password/token·SQLi 형태 recipient와 강제 DB 오류 | 비밀·SQL·constraint·traceback 미노출, DB 오류 일반 응답 | PASS |
+| T-P06-ROUTE-08 | active 일반 user/admin 조합의 송·수신 | role과 무관하게 양쪽 active면 허용 | PASS |
+| T-P06-TX-01 | 정상 송금 | sender 정확히 차감, recipient 정확히 증가, Transfer 한 row와 올바른 participant/amount | PASS |
+| T-P06-TX-02 | 정상 송금 audit | `transfer.created` 한 row, actor sender, target transfer, details amount만 존재 | PASS |
+| T-P06-TX-03 | 정상 송금 전후 모든 Wallet 합 | 총합 불변 | PASS |
+| T-P06-TX-04 | Flask URL map과 method | 사용자/admin Transfer update/delete route 없음, 관리자 Transfer GET-only | PASS |
+| T-P06-ROLLBACK-01 | insufficient funds | 양쪽 balance 불변, Transfer·AuditLog 없음 | PASS |
+| T-P06-ROLLBACK-02 | sender/recipient Wallet 누락 | 일반 실패와 전체 rollback | PASS |
+| T-P06-ROLLBACK-03 | credit rowcount 실패·audit 생성 실패 | balance·Transfer·AuditLog 전체 rollback | PASS |
+| T-P06-ROLLBACK-04 | commit 실패 | balance·Transfer·AuditLog 전체 rollback | PASS |
+| T-P06-ROLLBACK-05 | IntegrityError·기타 DB 오류 | session rollback 뒤 재사용 가능, 일반 응답 | PASS |
+
+## Phase 06 idempotency·concurrency
+
+| Test ID | 입력/행동 | 기대 결과 | 상태 |
+|---|---|---|---|
+| T-P06-IDEMP-01 | 같은 token·같은 payload 순차 두 요청 | Transfer 한 row, debit/credit 한 번, 두 번째는 기존 detail | PASS |
+| T-P06-IDEMP-02 | 같은 token·다른 amount 또는 recipient | conflict, balance·원장 불변 | PASS |
+| T-P06-IDEMP-03 | 다른 sender가 같은 raw token 사용 | sender namespace별 별도 derived key와 Transfer | PASS |
+| T-P06-IDEMP-04 | UI·DTO·AuditLog·관리자 projection 검사 | raw token과 derived key 없음 | PASS |
+| T-P06-IDEMP-05 | 실제 commit 뒤 exception, 첫 500의 같은 hidden token으로 동일 payload 재시도 | 기존 Transfer detail 303, Transfer·audit·debit·credit 1회와 token visible text·flash·로그 미노출 | PASS |
+| T-P06-CONCURRENCY-01 | file SQLite 독립 session의 balance 100에서 서로 다른 token 80+80 | 두 요청 동시 성공 불가, sender 음수 없음 | PASS |
+| T-P06-CONCURRENCY-02 | 서로 다른 token 경쟁 뒤 DB 검사 | 성공 ledger 수와 debit 횟수 일치, Wallet 총합 불변 | PASS |
+| T-P06-CONCURRENCY-03 | 같은 token·payload 동시 요청 | Transfer 한 row, debit/credit 한 번, CREATED 한 번과 IDEMPOTENT 결과 | PASS |
+| T-P06-CONCURRENCY-04 | concurrency test source/runtime | 실제 file SQLite·독립 engine/session/thread이며 skip 없음 | PASS |
+
+## Phase 06 history·detail·admin·audit
+
+| Test ID | 입력/행동 | 기대 결과 | 상태 |
+|---|---|---|---|
+| T-P06-HISTORY-01 | sent/received/all history | 각 방향의 본인 row만 표시, 타인 Transfer 제외 | PASS |
+| T-P06-HISTORY-02 | 21개 이상 row와 page/filter/sort | fixed 20 SQL LIMIT/OFFSET, filter가 prev/next URL에 유지 | PASS |
+| T-P06-HISTORY-03 | page 0·1001·비정수, invalid direction/sort | 400, SQL 오류 없음 | PASS |
+| T-P06-HISTORY-04 | history SELECT·DTO/context 검사 | 필요한 column만 조회, user ID·key·balance·hash/role/version 없음 | PASS |
+| T-P06-DETAIL-01 | sender와 recipient detail | 두 participant 200 | PASS |
+| T-P06-DETAIL-02 | 제3자와 missing transfer | 같은 404 | PASS |
+| T-P06-ADMIN-01 | 실제 사용자 송금 뒤 `/admin/transfers` | 실제 Transfer 표시, 일반 user 차단 | PASS |
+| T-P06-ADMIN-02 | admin HTML·SELECT·URL map | key·내부 user ID 미조회/미출력, GET-only, mutation 없음 | PASS |
+| T-P06-AUDIT-01 | transfer action/filter | `transfer.created` 표시와 target_type transfer filter | PASS |
+| T-P06-AUDIT-02 | transfer audit details | amount만 존재하고 recipient·balance·password·token/key 없음 | PASS |
+| T-P06-SEC-01 | headers·template·redirect 정적/HTTP 검사 | 기존 header, inline script/style·safe/Markup·open redirect 없음 | PASS |
+| T-P06-SEC-02 | dormant sender의 과거 session | user loader에서 차단, 송금 불가 | PASS |
+| T-P06-CI-01 | `.github/workflows/ci.yml` 정적 검사 | push/PR, Python 3.12, 필수 명령, random Secret, `continue-on-error` 없음 | PASS |
+| T-P06-CI-02 | checkout과 Phase tag 정적 검사 | `fetch-depth: 0`, `persist-credentials: false`, Phase 01~05 `git show-ref`, repository secret 없음 | PASS |
+| T-P06-FS-01 | Flask instance directory | 실제 directory `0700`, symlink·non-directory fail closed | PASS |
+| T-P06-FS-02 | file-backed SQLite main DB | regular file descriptor `0600`, symlink fail closed | PASS |
+| T-P06-FS-03 | in-memory SQLite와 기존 PRAGMA | file mode 적용 없이 정상 query, `foreign_keys=ON`, `busy_timeout=5000` | PASS |
+| T-P06-FS-04 | Git tracked artifact 검사 | instance·DB·upload 파일 Git 추적 없음 | PASS |
+
+## Phase 05 보존 자동화 결과
+
+2026-07-24 Phase 05 최종 검증 기준:
 
 | 명령/범위 | 결과 |
 |---|---|
@@ -338,15 +417,32 @@ Phase 05 시작 시점의 전체 408개 테스트도 삭제·skip·약화하지 
 | pip check, compileall, diff check | PASS |
 | Alembic 전체 이력·drift·route 확인 | PASS |
 
-이 수치는 현재 Phase 05 `app` 코드 coverage이며 아직 미구현된 전체 과제 기능의 coverage가
-아니다. 중간 실패는 수정 뒤 동일 범위를 재실행했으며 최종 결과와 별도로 최종 작업 보고에
-원문과 해결 내용을 기록한다.
+이 수치는 Phase 06 시작 전 Phase 05 `app` 코드 coverage다. Phase 06 최종 수치로 재사용하지
+않는다.
 
-## 후속 테스트
+## Phase 06 최종 자동화 결과
+
+2026-07-24 최종 로컬 검증 결과다. coverage는 현재 `app` 코드 범위다.
+
+| 명령/범위 | 실제 결과 |
+|---|---|
+| `.venv/bin/python -m pytest` | PASS, 596 passed in 132.78s |
+| `.venv/bin/python -m pytest --cov=app --cov-report=term-missing --cov-fail-under=90` | PASS, 596 passed in 147.20s, app 95.26% |
+| Ruff check/format | PASS, lint 전체 통과, 79 files already formatted |
+| Bandit app/scripts/run.py | PASS, High/Medium 포함 finding 없음 |
+| runtime/development pip-audit | PASS, 양쪽 모두 알려진 취약점 없음 |
+| pip check, compileall, diff check | PASS |
+| 빈 DB upgrade/current/check, Phase 05 downgrade, re-upgrade/check | PASS, head `f8c2d1e7a6b4`, 두 check 모두 drift 없음 |
+| Flask routes와 migration·secret·tracked artifact 검사 | PASS, Wallet/admin method 경계·migration 6개·기존 5개 불변·미추적 local artifact·instance 0700·DB 0600 확인 |
+
+중간 실패와 경고 원문·해결은 최종 작업 보고에 별도로 남긴다. GitHub Actions의 실제
+runner 실행·성공 화면은 commit/push/PR 금지 범위 때문에 아직 수동 확인 대상이다.
+
+## 통합 테스트 상태
 
 | Phase | 범위 | 상태 |
 |---|---|---|
 | Phase 03 | 상품 CRUD·소유권, 이미지 위장/손상/path/pixel, 상품 검색 필터·정렬·pagination | 회귀 유지 |
 | Phase 04 | Socket 인증, 전체/1대1 저장, sender 위조, 참여자 IDOR, stale lifecycle, event rate limit | 구현·검증 |
 | Phase 05 | 신고 대상·중복/race·3명 제재, 관리자 role·복구·감사 | 구현·검증 |
-| Phase 06 | 송금 양수·자기·초과·rollback·동시성·멱등·원장 불변성과 최종 통합 | 예정 |
+| Phase 06 | 송금 양수·자기·초과·rollback·동시성·멱등·원장 불변성과 최종 통합 | 구현·로컬 자동 검증 완료 |

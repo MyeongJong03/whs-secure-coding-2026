@@ -294,9 +294,28 @@ class ChatMessage(db.Model):
 class Transfer(db.Model):
     __tablename__ = "transfers"
     __table_args__ = (
-        db.CheckConstraint("amount > 0", name="ck_transfers_amount_positive"),
+        db.CheckConstraint(
+            "amount BETWEEN 1 AND 1000000000",
+            name="ck_transfers_amount_range",
+        ),
+        db.CheckConstraint(
+            "length(idempotency_key) = 64 AND idempotency_key NOT GLOB '*[^0-9a-f]*'",
+            name="ck_transfers_idempotency_key_format",
+        ),
         db.CheckConstraint(
             "sender_id <> recipient_id", name="ck_transfers_distinct_users"
+        ),
+        db.Index(
+            "ix_transfers_sender_created",
+            "sender_id",
+            "created_at",
+            "id",
+        ),
+        db.Index(
+            "ix_transfers_recipient_created",
+            "recipient_id",
+            "created_at",
+            "id",
         ),
     )
 
